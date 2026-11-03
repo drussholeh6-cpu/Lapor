@@ -4,6 +4,27 @@ const { getDatabase } = require('firebase-admin/database');
 
 let firebaseApp;
 
+function buildCredential() {
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (serviceAccountJson) {
+    try {
+      return cert(JSON.parse(serviceAccountJson));
+    } catch {
+      const error = new Error('FIREBASE_SERVICE_ACCOUNT_JSON must contain valid JSON.');
+      error.code = 'FIREBASE_CONFIG_MISSING';
+      throw error;
+    }
+  }
+
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return applicationDefault();
+  }
+
+  const error = new Error('Missing Firebase Admin credentials. Set FIREBASE_SERVICE_ACCOUNT_JSON for Vercel or GOOGLE_APPLICATION_CREDENTIALS for local development.');
+  error.code = 'FIREBASE_CONFIG_MISSING';
+  throw error;
+}
+
 function getFirebaseApp() {
   if (firebaseApp) return firebaseApp;
 
@@ -14,21 +35,11 @@ function getFirebaseApp() {
     throw error;
   }
 
-  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  let credential = applicationDefault();
-  if (serviceAccountJson) {
-    let serviceAccount;
-    try {
-      serviceAccount = JSON.parse(serviceAccountJson);
-    } catch {
-      const error = new Error('FIREBASE_SERVICE_ACCOUNT_JSON must contain valid JSON.');
-      error.code = 'FIREBASE_CONFIG_MISSING';
-      throw error;
-    }
-    credential = cert(serviceAccount);
-  }
+  firebaseApp = getApps()[0] || initializeApp({
+    credential: buildCredential(),
+    databaseURL,
+  });
 
-  firebaseApp = getApps()[0] || initializeApp({ credential, databaseURL });
   return firebaseApp;
 }
 
