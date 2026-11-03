@@ -1,0 +1,63 @@
+const { createClient } = require('@supabase/supabase-js');
+
+function getSupabaseConfig() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl) {
+    const error = new Error('SUPABASE_URL is required.');
+    error.code = 'SUPABASE_CONFIG_MISSING';
+    throw error;
+  }
+
+  if (!supabaseAnonKey && !supabaseServiceRoleKey) {
+    const error = new Error('Set SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY in environment.');
+    error.code = 'SUPABASE_CONFIG_MISSING';
+    throw error;
+  }
+
+  return { supabaseUrl, supabaseAnonKey, supabaseServiceRoleKey };
+}
+
+function createSupabaseClient({ serviceRole = false } = {}) {
+  const { supabaseUrl, supabaseAnonKey, supabaseServiceRoleKey } = getSupabaseConfig();
+  const key = serviceRole ? (supabaseServiceRoleKey || supabaseAnonKey) : (supabaseAnonKey || supabaseServiceRoleKey);
+
+  if (!key) {
+    const error = new Error('Supabase key is missing. Set SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY.');
+    error.code = 'SUPABASE_CONFIG_MISSING';
+    throw error;
+  }
+
+  return createClient(supabaseUrl, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+function supabaseAuth() {
+  return createSupabaseClient({ serviceRole: false });
+}
+
+function supabaseAdmin() {
+  return createSupabaseClient({ serviceRole: true });
+}
+
+function realtimeDatabase() {
+  return createSupabaseClient({ serviceRole: true });
+}
+
+function firebaseAuth() {
+  return createSupabaseClient({ serviceRole: false });
+}
+
+module.exports = {
+  createSupabaseClient,
+  firebaseAuth,
+  realtimeDatabase,
+  supabaseAdmin,
+  supabaseAuth,
+};

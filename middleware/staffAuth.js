@@ -1,4 +1,4 @@
-const { firebaseAuth } = require('../config/firebaseAdmin');
+const { firebaseAuth } = require('../config/supabase');
 
 function asyncHandler(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -10,23 +10,29 @@ const requireStaff = asyncHandler(async (req, res, next) => {
     return res.status(401).json({ message: 'Silakan masuk sebagai petugas.' });
   }
 
-  let claims;
+  let userData;
   try {
-    claims = await firebaseAuth().verifySessionCookie(sessionCookie, true);
+    const auth = firebaseAuth();
+    const { data, error } = await auth.auth.getUser(sessionCookie);
+    if (error || !data?.user) {
+      throw new Error('session invalid');
+    }
+    userData = data.user;
   } catch {
     return res.status(401).json({ message: 'Sesi tidak valid atau sudah berakhir. Silakan masuk kembali.' });
   }
 
-  if (!['admin', 'petugas'].includes(claims.role)) {
+  const role = userData.app_metadata?.role || userData.user_metadata?.role;
+  if (!['admin', 'petugas'].includes(role)) {
     return res.status(403).json({ message: 'Akun ini tidak memiliki akses petugas.' });
   }
 
   req.user = {
-    uid: claims.uid,
-    email: claims.email || '',
-    name: claims.staffName || claims.email || 'Petugas',
-    role: claims.role,
-    unit: claims.unit || '',
+    uid: userData.id,
+    email: userData.email || '',
+    name: userData.user_metadata?.staffName || userData.user_metadata?.name || userData.email || 'Petugas',
+    role,
+    unit: userData.app_metadata?.unit || userData.user_metadata?.unit || '',
   };
   return next();
 });

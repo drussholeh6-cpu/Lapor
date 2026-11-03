@@ -1,7 +1,7 @@
 const { randomInt } = require('node:crypto');
-const { realtimeDatabase } = require('../config/firebaseAdmin');
+const { realtimeDatabase } = require('../config/supabase');
 
-const COMPLAINTS_PATH = 'complaints';
+const COMPLAINTS_TABLE = 'complaints';
 
 function publicComplaint(complaint) {
   return {
@@ -32,15 +32,30 @@ function addAudit(complaint, kind, by, note) {
   complaint.audit.push({ kind, at: new Date().toISOString(), by, note });
 }
 
+function normalizeComplaint(row) {
+  if (!row) return null;
+  return row.data ? { ...row.data, code: row.data.code || row.code } : { ...row, code: row.code };
+}
+
 async function listComplaints() {
-  const snapshot = await realtimeDatabase().ref(COMPLAINTS_PATH).get();
-  const complaints = snapshot.val() || {};
-  return Object.values(complaints).sort((a, b) => b.at.localeCompare(a.at));
+  const { data, error } = await realtimeDatabase()
+    .from(COMPLAINTS_TABLE)
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map(normalizeComplaint).filter(Boolean).sort((a, b) => b.at.localeCompare(a.at));
 }
 
 async function findComplaintByCode(code) {
-  const snapshot = await realtimeDatabase().ref(`${COMPLAINTS_PATH}/${code}`).get();
-  return snapshot.exists() ? snapshot.val() : null;
+  const { data, error } = await realtimeDatabase()
+    .from(COMPLAINTS_TABLE)
+    .select('*')
+    .eq('code', code)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return normalizeComplaint(data);
 }
 
 async function createComplaint(input) {
@@ -75,97 +90,125 @@ async function createComplaint(input) {
 
   for (;;) {
     complaint.code = `${prefix}-${String(randomInt(0, 1000000)).padStart(6, '0')}`;
-    const reference = realtimeDatabase().ref(`${COMPLAINTS_PATH}/${complaint.code}`);
-    const result = await reference.transaction((current) => current ? undefined : complaint);
-    if (result.committed) return result.snapshot.val();
+    const { data, error } = await realtimeDatabase()
+      .from(COMPLAINTS_TABLE)
+      .insert({ code: complaint.code, data: complaint })
+      .select()
+      .single();
+
+    if (!error) return normalizeComplaint(data);
+    if (error.code !== '23505') throw error;
   }
 }
 
 async function applyStaffAction(code, input, user) {
-  const reference = realtimeDatabase().ref(`${COMPLAINTS_PATH}/${code}`);
-  const result = await reference.transaction((current) => {
-    if (!current || (user.role !== 'admin' && current.unit !== user.unit) || isClosed(current)) return;
+  const existing = await findComplaintByCode(code);
+  if (!existing || (user.role !== 'admin' && existing.unit !== user.unit) || isClosed(existing)) return null;
 
-    const complaint = {
-      ...current,
-      log: Array.isArray(current.log) ? [...current.log] : [],
-      audit: Array.isArray(current.audit) ? [...current.audit] : [],
-    };
-    const now = new Date().toISOString();
-    const operation = input.operation === 'request-info' ? 'request-info' : 'update';
-    const note = String(input.note || '').trim();
-    const visibility = input.visibility;
-    if (note.length < 10 || note.length > 2000) return;
-    if (!['public', 'internal'].includes(visibility)) return;
-    if (operation === 'request-info' && visibility !== 'public') return;
+  const complaint = {
+    ...existing,
+    log: Array.isArray(existing.log) ? [...existing.log] : [],
+    audit: Array.isArray(existing.audit) ? [...existing.audit] : [],
+  };
+  const now = new Date().toISOString();
+  const operation = input.operation === 'request-info' ? 'request-info' : 'update';
+  const note = String(input.note || '').trim();
+  const visibility = input.visibility;
+  if (note.length < 10 || note.length > 2000) return null;
+  if (!['public', 'internal'].includes(visibility)) return null;
+  if (operation === 'request-info' && visibility !== 'public') return null;
 
-    if (['normal', 'high', 'urgent'].includes(input.priority) && input.priority !== current.priority) {
-      complaint.priority = input.priority;
-      addAudit(complaint, 'priority', user.name, `Prioritas diubah menjadi ${input.priority}.`);
+  if (['normal', 'high', 'urgent'].includes(input.priority) && input.priority !== existing.priority) {
+    complaint.priority = input.priority;
+    addAudit(complaint, 'priority', user.name, `Prioritas diubah menjadi ${input.priority}.`);
+  }
+  if (user.role === 'admin' && typeof input.unit === 'string' && input.unit.trim() && input.unit !== existing.unit) {
+    complaint.unit = input.unit.trim();
+    addAudit(complaint, 'assignment', user.name, `Aduan diteruskan ke ${complaint.unit}.`);
+  }
+
+  if (operation === 'request-info') {
+    complaint.waitingForInfo = true;
+    complaint.infoPrompt = note;
+    complaint.infoRequestedAt = now;
+    addAudit(complaint, 'request-info', user.name, 'Petugas meminta informasi tambahan dari warga.');
+  } else {
+    const currentStatus = complaint.log[complaint.log.length - 1]?.s ?? 0;
+    const nextStatus = Number(input.status);
+    if (!Number.isInteger(nextStatus) || (nextStatus !== -1 && nextStatus !== currentStatus + 1)) return null;
+    complaint.log.push({ s: nextStatus, at: now, by: user.name, note, visibility });
+    complaint.waitingForInfo = false;
+    if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
+      complaint.evidence = input.evidence;
     }
-    if (user.role === 'admin' && typeof input.unit === 'string' && input.unit.trim() && input.unit !== current.unit) {
-      complaint.unit = input.unit.trim();
-      addAudit(complaint, 'assignment', user.name, `Aduan diteruskan ke ${complaint.unit}.`);
-    }
+    const statusName = nextStatus === -1 ? 'Ditolak' : ['Diterima', 'Diverifikasi', 'Diproses', 'Selesai'][nextStatus];
+    addAudit(complaint, 'status', user.name, `Status diubah menjadi ${statusName}.`);
+  }
 
-    if (operation === 'request-info') {
-      complaint.waitingForInfo = true;
-      complaint.infoPrompt = note;
-      complaint.infoRequestedAt = now;
-      addAudit(complaint, 'request-info', user.name, 'Petugas meminta informasi tambahan dari warga.');
-    } else {
-      const currentStatus = complaint.log[complaint.log.length - 1]?.s ?? 0;
-      const nextStatus = Number(input.status);
-      if (!Number.isInteger(nextStatus) || (nextStatus !== -1 && nextStatus !== currentStatus + 1)) return;
-      complaint.log.push({ s: nextStatus, at: now, by: user.name, note, visibility });
-      complaint.waitingForInfo = false;
-      if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
-        complaint.evidence = input.evidence;
-      }
-      const statusName = nextStatus === -1 ? 'Ditolak' : ['Diterima', 'Diverifikasi', 'Diproses', 'Selesai'][nextStatus];
-      addAudit(complaint, 'status', user.name, `Status diubah menjadi ${statusName}.`);
-    }
-    return complaint;
-  });
+  const { data, error } = await realtimeDatabase()
+    .from(COMPLAINTS_TABLE)
+    .update({ data: complaint })
+    .eq('code', code)
+    .select()
+    .single();
 
-  return result.committed ? result.snapshot.val() : null;
+  if (error) throw error;
+  return normalizeComplaint(data);
 }
 
 async function addResidentReply(code, note) {
-  const reference = realtimeDatabase().ref(`${COMPLAINTS_PATH}/${code}`);
-  const result = await reference.transaction((current) => {
-    if (!current || !current.waitingForInfo || note.length < 5 || note.length > 2000) return;
-    const complaint = {
-      ...current,
-      audit: Array.isArray(current.audit) ? [...current.audit] : [],
-      waitingForInfo: false,
-    };
-    complaint.infoResponse = { note, at: new Date().toISOString() };
-    addAudit(complaint, 'citizen-response', 'Warga', 'Balasan atas permintaan informasi diterima.');
-    return complaint;
-  });
-  return result.committed ? result.snapshot.val() : null;
+  const current = await findComplaintByCode(code);
+  if (!current || !current.waitingForInfo || note.length < 5 || note.length > 2000) return null;
+
+  const complaint = {
+    ...current,
+    audit: Array.isArray(current.audit) ? [...current.audit] : [],
+    waitingForInfo: false,
+  };
+  complaint.infoResponse = { note, at: new Date().toISOString() };
+  addAudit(complaint, 'citizen-response', 'Warga', 'Balasan atas permintaan informasi diterima.');
+
+  const { data, error } = await realtimeDatabase()
+    .from(COMPLAINTS_TABLE)
+    .update({ data: complaint })
+    .eq('code', code)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return normalizeComplaint(data);
 }
 
 async function addRating(code, score, comment) {
-  const reference = realtimeDatabase().ref(`${COMPLAINTS_PATH}/${code}`);
-  const result = await reference.transaction((current) => {
-    if (!current || !isClosed(current) || current.rating || !Number.isInteger(score) || score < 1 || score > 5) return;
-    const complaint = {
-      ...current,
-      audit: Array.isArray(current.audit) ? [...current.audit] : [],
-    };
-    complaint.rating = { score, comment: comment.slice(0, 300), at: new Date().toISOString() };
-    addAudit(complaint, 'rating', 'Warga', `Penilaian layanan ${score}/5 diterima.`);
-    return complaint;
-  });
-  return result.committed ? result.snapshot.val() : null;
+  const current = await findComplaintByCode(code);
+  if (!current || !isClosed(current) || current.rating || !Number.isInteger(score) || score < 1 || score > 5) return null;
+
+  const complaint = {
+    ...current,
+    audit: Array.isArray(current.audit) ? [...current.audit] : [],
+  };
+  complaint.rating = { score, comment: comment.slice(0, 300), at: new Date().toISOString() };
+  addAudit(complaint, 'rating', 'Warga', `Penilaian layanan ${score}/5 diterima.`);
+
+  const { data, error } = await realtimeDatabase()
+    .from(COMPLAINTS_TABLE)
+    .update({ data: complaint })
+    .eq('code', code)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return normalizeComplaint(data);
 }
 
 async function deleteComplaints(codes) {
-  const updates = {};
-  codes.forEach((code) => { updates[code] = null; });
-  await realtimeDatabase().ref(COMPLAINTS_PATH).update(updates);
+  if (!codes.length) return;
+  const { error } = await realtimeDatabase()
+    .from(COMPLAINTS_TABLE)
+    .delete()
+    .in('code', codes);
+
+  if (error) throw error;
 }
 
 module.exports = {

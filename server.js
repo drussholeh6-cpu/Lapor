@@ -39,11 +39,11 @@ app.get('*', (req, res, next) => {
 });
 
 app.use((error, req, res, next) => {
-  if (error.code !== 'FIREBASE_CONFIG_MISSING') console.error(error);
-  const status = error.status || (error.code === 'FIREBASE_CONFIG_MISSING' ? 503 : 500);
+  if (error.code !== 'SUPABASE_CONFIG_MISSING') console.error(error);
+  const status = error.status || (error.code === 'SUPABASE_CONFIG_MISSING' ? 503 : 500);
   res.status(status).json({
     message: status === 503
-      ? 'Backend Firebase belum dikonfigurasi. Periksa environment dan kredensial server.'
+      ? 'Backend Supabase belum dikonfigurasi. Periksa environment dan kredensial server.'
       : 'Terjadi kesalahan pada server.',
   });
 });

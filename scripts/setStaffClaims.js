@@ -1,7 +1,6 @@
 require('dotenv').config();
 
-const { applicationDefault, getApps, initializeApp } = require('firebase-admin/app');
-const { getAuth } = require('firebase-admin/auth');
+const { createClient } = require('@supabase/supabase-js');
 
 async function main() {
   const { STAFF_EMAIL, STAFF_ROLE, STAFF_UNIT = '', STAFF_NAME = '' } = process.env;
@@ -12,18 +11,43 @@ async function main() {
     throw new Error('STAFF_UNIT wajib diisi untuk role petugas.');
   }
 
-  const databaseURL = process.env.FIREBASE_DATABASE_URL;
-  if (!databaseURL) throw new Error('FIREBASE_DATABASE_URL belum diatur.');
-  const app = getApps()[0] || initializeApp({ credential: applicationDefault(), databaseURL });
-  const auth = getAuth(app);
-  const user = await auth.getUserByEmail(STAFF_EMAIL);
-  await auth.setCustomUserClaims(user.uid, {
-    role: STAFF_ROLE,
-    unit: STAFF_ROLE === 'admin' ? '' : STAFF_UNIT,
-    staffName: STAFF_NAME || user.displayName || user.email,
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error('SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY harus diatur.');
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
   });
-  await auth.revokeRefreshTokens(user.uid);
-  console.log(`Custom claims diperbarui untuk ${user.email} (${STAFF_ROLE}).`);
+
+  const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
+  if (listError) throw listError;
+
+  const user = usersData.users.find((item) => item.email?.toLowerCase() === STAFF_EMAIL.toLowerCase());
+  if (!user) {
+    throw new Error(`Pengguna ${STAFF_EMAIL} tidak ditemukan di Supabase Auth.`);
+  }
+
+  const roleData = {
+    app_metadata: {
+      ...user.app_metadata,
+      role: STAFF_ROLE,
+      unit: STAFF_ROLE === 'admin' ? '' : STAFF_UNIT,
+      staffName: STAFF_NAME || user.user_metadata?.staffName || user.email,
+    },
+    user_metadata: {
+      ...user.user_metadata,
+      role: STAFF_ROLE,
+      unit: STAFF_ROLE === 'admin' ? '' : STAFF_UNIT,
+      staffName: STAFF_NAME || user.user_metadata?.staffName || user.email,
+    },
+  };
+
+  const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, roleData);
+  if (updateError) throw updateError;
+
+  console.log(`Peran petugas diperbarui untuk ${user.email} (${STAFF_ROLE}).`);
 }
 
 main().catch((error) => {
