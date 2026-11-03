@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="id">
+<head> 
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lacak Aduan — Kelurahan Sukamaju</title>
+<meta name="description" content="Lacak Aduan Kelurahan Sukamaju: kirim aduan warga tanpa akun, dapatkan nomor pelacakan, dan pantau tindak lanjut petugas secara transparan.">
+<meta name="theme-color" content="#f0f5f1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9b6a'/%3E%3Cpath d='M20 44V20h12c7 0 12 4 12 10s-5 10-12 10h-5v4h-7Zm7-10h5c3 0 5-1 5-4s-2-4-5-4h-5v8Z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+<script>
+  (() => {
+    try {
+      const pref = localStorage.getItem("la-theme") || "system";
+      const dark =
+        pref === "dark" ||
+        (pref === "system" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    } catch {
+      /* Tema bawaan mengikuti sistem. */
+    }
+  })();
+</script>
+</head>
+<body>
+<a class="skip-link" href="#beranda">Lewati ke konten utama</a>
+<header class="top"><div class="wrap">
+  <div class="brand"><b>Lacak Aduan</b><span>Kelurahan Sukamaju, Kota Contoh</span></div>
+  <nav role="tablist" aria-label="Menu utama">
+    <button role="tab" data-tab="beranda" aria-selected="true">Beranda</button>
+    <button role="tab" data-tab="lacak" aria-selected="false">Lacak aduan</button>
+    <button role="tab" data-tab="buat" aria-selected="false">Buat aduan</button>
+    <button role="tab" id="staff-nav-button" data-tab="petugas" aria-selected="false">Masuk petugas</button>
+  </nav>
+  <div class="header-tools">
+    <div class="live-clock" title="Waktu Indonesia Barat (Asia/Jakarta)">
+      <span class="clock-pulse" aria-hidden="true"></span>
+      <div class="clock-body">
+        <time id="live-clock" class="clock-time" datetime="" aria-live="off">--:--:--</time>
+        <span class="clock-meta"><span id="live-clock-date">Memuat tanggal…</span><span class="clock-zone">WIB</span></span>
+      </div>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Aktifkan tema gelap" title="Ganti tema">
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5 8.5 8.5 0 1 0 20.5 14.3Z"/></svg>
+    </button>
+  </div>
+</div></header>
+
+<main class="wrap">
+<section id="beranda">
+  <div class="home-hero">
+    <div class="hero-copy">
+      <p class="eyebrow"><span></span> LAYANAN PUBLIK · SUKAMAJU</p>
+      <h1>Aduan Anda, jelas sampai selesai.</h1>
+      <p class="lead">Pantau setiap langkah penanganan, baca catatan petugas, dan lihat target waktu sesuai jenis serta prioritas aduan.</p>
+      <div class="actions home-actions"><button class="btn" data-go="buat">Buat aduan baru <span aria-hidden="true">→</span></button><button class="btn alt" data-go="lacak">Lacak aduan</button></div>
+    </div>
+    <aside class="hero-preview" aria-label="Contoh tampilan status aduan">
+      <div class="preview-top"><span>CONTOH PELACAKAN</span><span class="preview-live"><i></i> DIPERBARUI</span></div>
+      <div class="preview-code">ADU-2610-0142</div>
+      <p class="preview-location">Perbaikan jalan <span>·</span> Jl. Melati</p>
+      <div class="preview-status"><span class="preview-status-dot"></span><span><b>Sedang diproses</b><small>Tim pemeliharaan jalan</small></span><span class="preview-arrow" aria-hidden="true">↗</span></div>
+      <div class="preview-track" aria-hidden="true"><span class="complete"></span><span class="complete"></span><span class="current"></span><span></span></div>
+      <div class="preview-foot"><span>Masuk 9 hari lalu</span><span>Langkah 3 dari 4</span></div>
+    </aside>
+  </div>
+  <p class="stats" id="home-stats"></p>
+  <h2 class="home-heading">Empat langkah, semuanya terlihat</h2>
+  <ol class="steps">
+    <li><b>1</b><h3>Diterima</h3><p>Aduan masuk dan Anda langsung mendapat nomor.</p></li>
+    <li><b>2</b><h3>Diverifikasi</h3><p>Petugas mengecek lokasi dan menentukan siapa yang berwenang.</p></li>
+    <li><b>3</b><h3>Diproses</h3><p>Unit terkait mengerjakan. Setiap kemajuan dicatat.</p></li>
+    <li><b>4</b><h3>Selesai</h3><p>Hasil dilaporkan. Jika ditolak, alasannya ditulis dan Anda diarahkan ke instansi yang tepat.</p></li>
+  </ol>
+  <h2 class="home-heading">Yang kami janjikan</h2>
+  <ul class="promise">
+    <li>Setiap perubahan status disertai catatan yang bisa Anda baca.</li>
+    <li>Target waktu menyesuaikan jenis dan prioritas. Aduan yang melewati target tetap ditampilkan.</li>
+    <li>Nama pelapor tidak pernah muncul di papan terbuka.</li>
+  </ul>
+  <div class="sla-heading">
+    <div>
+      <h2 class="home-heading">Target waktu penanganan</h2>
+      <p class="sla-lead">Pilih jenis aduan untuk mulai membuat laporan. Angka ini hanya panduan, bukan standar pelayanan resmi.</p>
+    </div>
+    <span class="map-tag">TARGET</span>
+  </div>
+  <ul class="sla-grid" id="sla-grid" aria-label="Target waktu per jenis aduan"></ul>
+  <p class="sla-note"><b>Penyesuaian prioritas:</b> Darurat 1 hari · Tinggi maksimal 2 hari atau 65% target kategori · Normal sesuai target kategori.</p>
+</section>
+
+<section id="lacak" hidden>
+  <h1>Cari aduan dengan nomornya.</h1>
+  <p class="lead">Masukkan nomor dari bukti aduan. Anda akan melihat siapa yang menangani, sudah sampai mana, dan apa catatan petugas.</p>
+  <form id="f-track" autocomplete="off">
+    <label for="q">Nomor aduan</label>
+    <div class="display"><input id="q" placeholder="ADU-2610-0000" maxlength="14" spellcheck="false"><button class="btn" type="submit">Cari aduan</button></div>
+  </form>
+  <p class="try">Contoh untuk dicoba: <button data-try="ADU-2610-0142">ADU-2610-0142</button><button data-try="ADU-2610-0138">ADU-2610-0138</button><button data-try="ADU-2610-0119">ADU-2610-0119</button></p>
+  <p class="msg" id="tmsg" role="alert"></p>
+  <div id="result" aria-live="polite"></div>
+
+  <div class="board">
+    <h2>Papan terbuka</h2>
+    <p class="stats" id="stats"></p>
+    <div class="map-heading"><div><h3>Sebaran aduan</h3><p>Titik lokasi ditampilkan secara perkiraan untuk melindungi privasi.</p></div><span class="map-tag">PETA LOKASI</span></div>
+    <div class="map-frame"><div id="public-map" aria-label="Peta sebaran lokasi aduan"></div><p class="map-fallback" id="public-map-fallback" hidden></p></div>
+    <div class="tw"><table><thead><tr><th>Nomor</th><th>Jenis</th><th>Lokasi</th><th>Status</th><th>Umur</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <p class="hint">Daftar ini terbuka untuk siapa saja. Nama pelapor tidak pernah ditampilkan. Klik baris untuk melihat riwayatnya.</p>
+  </div>
+</section>
+
+<section id="buat" hidden>
+  <h1>Sampaikan aduan. Anda langsung dapat nomornya.</h1>
+  <p class="lead">Tidak perlu akun. Tulis apa yang terjadi dan di mana. Nomor aduan muncul setelah Anda menekan tombol kirim.</p>
+  <form id="f-new" class="grid" autocomplete="off">
+    <div class="field"><label for="n-name">Nama (boleh dikosongkan)</label><input id="n-name"><p class="hint">Hanya dilihat petugas, tidak tampil di papan terbuka.</p></div>
+    <div class="field"><label for="n-cat">Jenis aduan</label><select id="n-cat"></select></div>
+    <div class="field"><label for="n-severity">Tingkat kedaruratan</label><select id="n-severity"><option value="normal">Normal</option><option value="high">Mendesak</option><option value="urgent">Darurat</option></select></div>
+    <div class="field full"><label for="n-loc">Lokasi kejadian</label><input id="n-loc" required placeholder="Contoh: Jl. Melati depan SD, RT 04/RW 02"></div>
+    <div class="field full"><label>Lokasi pada peta <span class="optional">(opsional)</span></label><div class="location-tools"><button class="btn alt" type="button" id="locate-me">Gunakan lokasi perangkat</button><span class="hint">Atau pilih titik di peta. Lokasi yang ditampilkan ke publik dibulatkan.</span></div><div class="map-frame picker-frame"><div id="location-picker" aria-label="Pilih lokasi aduan pada peta"></div><p class="map-fallback" id="picker-fallback" hidden></p></div><div class="coordinates"><label for="n-lat">Lintang</label><input id="n-lat" inputmode="decimal" placeholder="Belum dipilih"><label for="n-lng">Bujur</label><input id="n-lng" inputmode="decimal" placeholder="Belum dipilih"></div></div>
+    <div class="field full"><label for="n-text">Apa yang terjadi?</label><textarea id="n-text" required minlength="15" placeholder="Ceritakan singkat: apa masalahnya, sejak kapan, siapa yang terdampak."></textarea><p class="hint form-error" id="n-err"></p></div>
+    <div class="field full"><label for="n-evidence">Foto bukti <span class="optional">(opsional, maks. 2 MB)</span></label><input id="n-evidence" type="file" accept="image/*"><p class="hint">Foto hanya dapat dilihat petugas.</p></div>
+    <div class="full"><button class="btn" type="submit">Kirim aduan</button></div>
+  </form>
+  <div id="made" class="done-box" hidden></div>
+</section>
+
+<section id="petugas" hidden>
+  <div id="staff-login-view" class="login-layout">
+    <div class="login-copy"><span class="label-chip">AREA KERJA PETUGAS</span><h1>Ruang kerja petugas.</h1><p class="lead">Masuk untuk mengelola aduan, menetapkan prioritas, dan mencatat tindak lanjut.</p><p class="security-note">Akses petugas diverifikasi oleh server.</p></div>
+    <form id="f-login" class="login-form" autocomplete="off">
+      <h2>Masuk ke akun</h2>
+      <label for="login-user">Email</label><input id="login-user" type="email" required autocomplete="username" placeholder="nama@instansi.go.id">
+      <label for="login-pass">Kata sandi</label><input id="login-pass" type="password" required autocomplete="current-password" placeholder="Masukkan kata sandi akun">
+      <p class="msg" id="login-error" role="alert"></p>
+      <button class="btn" type="submit">Masuk</button>
+    </form>
+  </div>
+  <div id="staff-workspace" hidden>
+    <div class="staff-heading"><div><span class="label-chip">DASHBOARD PETUGAS</span><h1>Ringkasan penanganan.</h1><p class="lead" id="staff-welcome"></p></div><button class="btn alt" id="staff-logout" type="button">Keluar</button></div>
+    <div class="dashboard-stats" aria-label="Ringkasan kinerja">
+      <div class="metric"><span>Aktif</span><b id="metric-active">0</b><small>aduan berjalan</small></div>
+      <div class="metric metric-alert"><span>Terlambat</span><b id="metric-late">0</b><small>melewati target waktu</small></div>
+      <div class="metric metric-urgent"><span>Prioritas tinggi</span><b id="metric-urgent">0</b><small>perlu perhatian</small></div>
+      <div class="metric"><span>Rata-rata selesai</span><b id="metric-average">0 hari</b><small>waktu penanganan</small></div>
+      <div class="metric"><span>Kepuasan</span><b id="metric-rating">-</b><small id="metric-rating-count">belum ada penilaian</small></div>
+    </div>
+    <div class="staff-grid">
+      <section class="staff-panel">
+        <div class="panel-heading"><div><h2>Daftar aduan</h2><p>Pilih laporan untuk melihat dan memperbarui tindak lanjut.</p></div><div class="notification-tools"><span class="notification-count" id="notification-count">0 baru</span><button class="text-button" id="mark-read" type="button">Tandai dibaca</button></div></div>
+        <div class="staff-filters"><label for="filter-status">Status<select id="filter-status"><option value="all">Semua status</option><option value="open">Berjalan</option><option value="late">Terlambat</option><option value="closed">Selesai / ditutup</option></select></label><label for="filter-priority">Prioritas<select id="filter-priority"><option value="all">Semua prioritas</option><option value="urgent">Darurat</option><option value="high">Tinggi</option><option value="normal">Normal</option></select></label></div>
+        <div class="bulk-actions" id="bulk-actions" hidden>
+          <label class="checkbox-inline"><input type="checkbox" id="staff-select-all"> Pilih semua</label>
+          <button class="btn danger-btn small-btn" id="delete-selected" type="button">Hapus terpilih</button>
+        </div>
+        <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th class="select-col"><input type="checkbox" id="staff-header-select" aria-label="Pilih semua aduan di daftar"></th><th>Nomor / lokasi</th><th>Status</th><th>Prioritas</th><th>Tenggat</th></tr></thead><tbody id="staff-rows"></tbody></table></div>
+      </section>
+      <section class="staff-panel staff-editor">
+        <div class="panel-heading"><div><h2>Ruang tindak lanjut</h2><p id="case-help">Pilih aduan dari daftar.</p></div></div>
+        <div id="case-detail" class="case-detail" hidden></div>
+        <form id="f-staff" class="grid" autocomplete="off">
+          <div class="field full"><label for="s-t">Aduan dipilih</label><select id="s-t" required></select></div>
+          <div class="field"><label for="s-priority">Prioritas</label><select id="s-priority"><option value="normal">Normal</option><option value="high">Tinggi</option><option value="urgent">Darurat</option></select></div>
+          <div class="field"><label for="s-unit">Unit penanggung jawab</label><select id="s-unit"><option>Seksi Pemeliharaan Jalan</option><option>Dinas Kebersihan</option><option>Seksi Sarana Umum</option><option>Tim Drainase</option><option>Bagian Pelayanan Kelurahan</option><option>Koordinasi Lintas Instansi</option></select></div>
+          <div class="field full"><label for="s-st">Status tindak lanjut</label><select id="s-st"></select></div>
+          <div class="field full"><label for="s-note">Catatan tindak lanjut</label><textarea id="s-note" required minlength="10" placeholder="Jelaskan tindakan, keputusan, atau informasi yang dibutuhkan."></textarea><label for="s-visibility">Visibilitas catatan</label><select id="s-visibility"><option value="public">Dapat dilihat warga</option><option value="internal">Internal petugas</option></select><p class="hint">Status tetap terlihat oleh warga. Catatan internal hanya tampil di ruang petugas. Permintaan informasi selalu ditampilkan kepada warga. Untuk penolakan, tulis alasan dan instansi tujuan.</p></div>
+          <div class="field full"><label for="staff-evidence">Bukti penanganan <span class="optional">(opsional, maks. 2 MB)</span></label><input id="staff-evidence" type="file" accept="image/*"><p class="hint">Bukti hanya disimpan di browser ini.</p></div>
+          <div class="full staff-actions"><button class="btn" name="operation" value="update" type="submit">Simpan pembaruan</button><button class="btn alt" name="operation" value="request-info" type="submit">Minta informasi warga</button><button class="btn danger-btn" id="delete-ticket" type="button">Hapus aduan</button><p class="msg success-msg" id="smsg" role="status"></p></div>
+        </form>
+      </section>
+    </div>
+    <section class="staff-panel notification-panel"><div class="panel-heading"><div><h2>Aktivitas terbaru</h2><p>Catatan perubahan yang tersimpan di browser.</p></div></div><ol id="activity-list" class="activity-list"></ol></section>
+  </div>
+</section>
+</main>
+
+<div id="delete-modal" class="modal" hidden>
+  <div class="modal-backdrop" data-close-delete-modal="true"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+    <div class="modal-header">
+      <div>
+        <span class="label-chip">ADMIN</span>
+        <h2 id="delete-modal-title">Hapus aduan</h2>
+      </div>
+      <button type="button" class="icon-button" id="close-delete-modal" aria-label="Tutup konfirmasi">×</button>
+    </div>
+    <p id="delete-modal-text">Apakah Anda yakin ingin menghapus aduan ini?</p>
+    <div class="modal-actions">
+      <button type="button" class="btn alt" id="cancel-delete">Batal</button>
+      <button type="button" class="btn danger-btn" id="confirm-delete">Ya, hapus</button>
+    </div>
+  </div>
+</div>
+
+<footer><div class="wrap">Web design by TIM PEDEDE</div></footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<script src="script.js" defer></script>
+</body>
+</html>

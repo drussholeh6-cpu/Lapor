@@ -1,0 +1,23 @@
+{
+  "name": "lacak-aduan",
+  "version": "1.0.0",
+  "description": "Backend minimal untuk aplikasi demo Lacak Aduan",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "staff:claims": "node scripts/setStaffClaims.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "firebase-admin": "^14.5.0",
+    "helmet": "^8.0.0"
+  }
+}
