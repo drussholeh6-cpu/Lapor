@@ -5,18 +5,23 @@ Aplikasi demo pelaporan dan pelacakan aduan dengan backend Express dan Supabase.
 ## Struktur utama
 
 ```text
-public/                 Frontend statis
-config/                 Konfigurasi klien Supabase
-controllers/            Handler request API
-middleware/             Middleware otorisasi petugas
-models/                 Model akses data aduan
-routes/                 Route API
-scripts/                Utility admin & migrasi data
-database/               Schema SQL untuk Supabase
-server.js               Entry point aplikasi
+core/                  Bootstrap aplikasi & middleware reusable
+public/                Frontend statis
+config/                Konfigurasi klien Supabase
+controllers/           Handler request API (thin layer)
+middleware/            Middleware otorisasi petugas
+models/                Model akses data aduan
+services/              Business logic & validasi domain
+utils/                 Helper reusable seperti validator
+routes/                Route API & registrasi routing
+scripts/               Utility admin & migrasi data
+database/              Schema SQL untuk Supabase
+server.js              Entry point aplikasi
+app.js                 Export app instance untuk test/bootstrapping
 ```
 
 Catatan:
+- Struktur sudah dibuat lebih modular agar mirip app factory/framework mini.
 - File lama yang masih tersisa hanya sebagai kompatibilitas mundur dan tidak lagi dipakai di flow utama.
 - Logika inti sudah dipusatkan di `config/supabase.js` agar struktur lebih rapi.
 

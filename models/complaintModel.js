@@ -2,6 +2,9 @@ const { randomInt } = require('node:crypto');
 const { realtimeDatabase } = require('../config/supabase');
 
 const COMPLAINTS_TABLE = 'complaints';
+const VALID_PRIORITIES = ['normal', 'high', 'urgent'];
+const VALID_VISIBILITY = ['public', 'internal'];
+const STATUS_LABELS = ['Diterima', 'Diverifikasi', 'Diproses', 'Selesai'];
 
 function publicComplaint(complaint) {
   return {
@@ -34,7 +37,33 @@ function addAudit(complaint, kind, by, note) {
 
 function normalizeComplaint(row) {
   if (!row) return null;
-  return row.data ? { ...row.data, code: row.data.code || row.code } : { ...row, code: row.code };
+  const data = row.data ? row.data : row;
+  return { ...data, code: data.code || row.code };
+}
+
+function cloneComplaintData(complaint) {
+  return {
+    ...complaint,
+    log: Array.isArray(complaint.log) ? [...complaint.log] : [],
+    audit: Array.isArray(complaint.audit) ? [...complaint.audit] : [],
+  };
+}
+
+function hasValidLength(value, minLength, maxLength) {
+  const text = String(value || '').trim();
+  return text.length >= minLength && text.length <= maxLength;
+}
+
+async function saveComplaintUpdate(code, complaint) {
+  const { data, error } = await realtimeDatabase()
+    .from(COMPLAINTS_TABLE)
+    .update({ data: complaint })
+    .eq('code', code)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return normalizeComplaint(data);
 }
 
 async function listComplaints() {
@@ -44,7 +73,11 @@ async function listComplaints() {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return (data || []).map(normalizeComplaint).filter(Boolean).sort((a, b) => b.at.localeCompare(a.at));
+
+  return (data || [])
+    .map(normalizeComplaint)
+    .filter(Boolean)
+    .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
 }
 
 async function findComplaintByCode(code) {
@@ -62,10 +95,11 @@ async function createComplaint(input) {
   const now = new Date().toISOString();
   const date = new Date();
   const prefix = `ADU-${String(date.getFullYear()).slice(-2)}${String(date.getMonth() + 1).padStart(2, '0')}`;
+
   const complaint = {
     cat: input.cat,
-    loc: input.loc.trim(),
-    text: input.text.trim(),
+    loc: String(input.loc || '').trim(),
+    text: String(input.text || '').trim(),
     name: String(input.name || '').trim(),
     at: now,
     priority: input.priority,
@@ -86,6 +120,7 @@ async function createComplaint(input) {
     }],
     audit: [],
   };
+
   addAudit(complaint, 'created', 'Sistem', 'Aduan baru diterima.');
 
   for (;;) {
@@ -105,23 +140,20 @@ async function applyStaffAction(code, input, user) {
   const existing = await findComplaintByCode(code);
   if (!existing || (user.role !== 'admin' && existing.unit !== user.unit) || isClosed(existing)) return null;
 
-  const complaint = {
-    ...existing,
-    log: Array.isArray(existing.log) ? [...existing.log] : [],
-    audit: Array.isArray(existing.audit) ? [...existing.audit] : [],
-  };
+  const complaint = cloneComplaintData(existing);
   const now = new Date().toISOString();
   const operation = input.operation === 'request-info' ? 'request-info' : 'update';
   const note = String(input.note || '').trim();
   const visibility = input.visibility;
-  if (note.length < 10 || note.length > 2000) return null;
-  if (!['public', 'internal'].includes(visibility)) return null;
+
+  if (!hasValidLength(note, 10, 2000) || !VALID_VISIBILITY.includes(visibility)) return null;
   if (operation === 'request-info' && visibility !== 'public') return null;
 
-  if (['normal', 'high', 'urgent'].includes(input.priority) && input.priority !== existing.priority) {
+  if (VALID_PRIORITIES.includes(input.priority) && input.priority !== existing.priority) {
     complaint.priority = input.priority;
     addAudit(complaint, 'priority', user.name, `Prioritas diubah menjadi ${input.priority}.`);
   }
+
   if (user.role === 'admin' && typeof input.unit === 'string' && input.unit.trim() && input.unit !== existing.unit) {
     complaint.unit = input.unit.trim();
     addAudit(complaint, 'assignment', user.name, `Aduan diteruskan ke ${complaint.unit}.`);
@@ -132,73 +164,47 @@ async function applyStaffAction(code, input, user) {
     complaint.infoPrompt = note;
     complaint.infoRequestedAt = now;
     addAudit(complaint, 'request-info', user.name, 'Petugas meminta informasi tambahan dari warga.');
-  } else {
-    const currentStatus = complaint.log[complaint.log.length - 1]?.s ?? 0;
-    const nextStatus = Number(input.status);
-    if (!Number.isInteger(nextStatus) || (nextStatus !== -1 && nextStatus !== currentStatus + 1)) return null;
-    complaint.log.push({ s: nextStatus, at: now, by: user.name, note, visibility });
-    complaint.waitingForInfo = false;
-    if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
-      complaint.evidence = input.evidence;
-    }
-    const statusName = nextStatus === -1 ? 'Ditolak' : ['Diterima', 'Diverifikasi', 'Diproses', 'Selesai'][nextStatus];
-    addAudit(complaint, 'status', user.name, `Status diubah menjadi ${statusName}.`);
+    return saveComplaintUpdate(code, complaint);
   }
 
-  const { data, error } = await realtimeDatabase()
-    .from(COMPLAINTS_TABLE)
-    .update({ data: complaint })
-    .eq('code', code)
-    .select()
-    .single();
+  const currentStatus = complaint.log[complaint.log.length - 1]?.s ?? 0;
+  const nextStatus = Number(input.status);
+  if (!Number.isInteger(nextStatus) || (nextStatus !== -1 && nextStatus !== currentStatus + 1)) return null;
 
-  if (error) throw error;
-  return normalizeComplaint(data);
+  complaint.log.push({ s: nextStatus, at: now, by: user.name, note, visibility });
+  complaint.waitingForInfo = false;
+
+  if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
+    complaint.evidence = input.evidence;
+  }
+
+  const statusName = nextStatus === -1 ? 'Ditolak' : STATUS_LABELS[nextStatus];
+  addAudit(complaint, 'status', user.name, `Status diubah menjadi ${statusName}.`);
+
+  return saveComplaintUpdate(code, complaint);
 }
 
 async function addResidentReply(code, note) {
   const current = await findComplaintByCode(code);
-  if (!current || !current.waitingForInfo || note.length < 5 || note.length > 2000) return null;
+  if (!current || !current.waitingForInfo || !hasValidLength(note, 5, 2000)) return null;
 
-  const complaint = {
-    ...current,
-    audit: Array.isArray(current.audit) ? [...current.audit] : [],
-    waitingForInfo: false,
-  };
+  const complaint = cloneComplaintData(current);
+  complaint.waitingForInfo = false;
   complaint.infoResponse = { note, at: new Date().toISOString() };
   addAudit(complaint, 'citizen-response', 'Warga', 'Balasan atas permintaan informasi diterima.');
 
-  const { data, error } = await realtimeDatabase()
-    .from(COMPLAINTS_TABLE)
-    .update({ data: complaint })
-    .eq('code', code)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return normalizeComplaint(data);
+  return saveComplaintUpdate(code, complaint);
 }
 
 async function addRating(code, score, comment) {
   const current = await findComplaintByCode(code);
   if (!current || !isClosed(current) || current.rating || !Number.isInteger(score) || score < 1 || score > 5) return null;
 
-  const complaint = {
-    ...current,
-    audit: Array.isArray(current.audit) ? [...current.audit] : [],
-  };
-  complaint.rating = { score, comment: comment.slice(0, 300), at: new Date().toISOString() };
+  const complaint = cloneComplaintData(current);
+  complaint.rating = { score, comment: String(comment || '').slice(0, 300), at: new Date().toISOString() };
   addAudit(complaint, 'rating', 'Warga', `Penilaian layanan ${score}/5 diterima.`);
 
-  const { data, error } = await realtimeDatabase()
-    .from(COMPLAINTS_TABLE)
-    .update({ data: complaint })
-    .eq('code', code)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return normalizeComplaint(data);
+  return saveComplaintUpdate(code, complaint);
 }
 
 async function deleteComplaints(codes) {

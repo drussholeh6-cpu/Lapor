@@ -1,1 +1,3 @@
-module.exports = require('./server');
+const createApp = require('./core/appFactory');
+
+module.exports = createApp();
