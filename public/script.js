@@ -1208,9 +1208,19 @@ async function submitNewTicket(event) {
   addAudit(ticket, "created", "Sistem", "Aduan baru diterima.");
 
   try {
+    const payload = {
+      cat: category,
+      loc: $("n-loc").value.trim(),
+      text: $("n-text").value.trim(),
+      name: $("n-name").value.trim(),
+      priority: $("n-severity").value,
+      coordinates: coordinates,
+      evidence,
+    };
+
     ticket = await apiRequest('/complaints', {
       method: 'POST',
-      body: JSON.stringify(ticket),
+      body: JSON.stringify(payload),
     });
   } catch (apiError) {
     error.textContent = apiError.message;
