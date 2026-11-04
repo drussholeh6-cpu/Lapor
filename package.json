@@ -8,7 +8,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "staff:claims": "node scripts/setStaffClaims.js",
-    "migrate:firebase": "node scripts/migrateFirebaseToSupabase.js"
+    "migrate:firebase": "node scripts/migrateFirebaseToSupabase.js",
+    "test:api": "node scripts/testApi.js"
   },
   "engines": {
     "node": ">=20"
