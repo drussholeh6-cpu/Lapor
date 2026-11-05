@@ -20,12 +20,21 @@ function getSupabaseConfig() {
   return { supabaseUrl, supabaseAnonKey, supabaseServiceRoleKey };
 }
 
-function createSupabaseClient({ serviceRole = false } = {}) {
+function createSupabaseClient({ serviceRole = false, requireServiceRole = false } = {}) {
   const { supabaseUrl, supabaseAnonKey, supabaseServiceRoleKey } = getSupabaseConfig();
-  const key = serviceRole ? (supabaseServiceRoleKey || supabaseAnonKey) : (supabaseAnonKey || supabaseServiceRoleKey);
+  
+  const key = serviceRole 
+    ? (supabaseServiceRoleKey || supabaseAnonKey) 
+    : (supabaseAnonKey || supabaseServiceRoleKey);
 
   if (!key) {
     const error = new Error('Supabase key is missing. Set SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY.');
+    error.code = 'SUPABASE_CONFIG_MISSING';
+    throw error;
+  }
+
+  if (requireServiceRole && !supabaseServiceRoleKey) {
+    const error = new Error('SUPABASE_SERVICE_ROLE_KEY is required for service-role operations.');
     error.code = 'SUPABASE_CONFIG_MISSING';
     throw error;
   }
@@ -38,26 +47,26 @@ function createSupabaseClient({ serviceRole = false } = {}) {
   });
 }
 
+// Caching instance untuk mencegah pembuatan client berulang (Singleton Pattern)
+let cachedSupabaseAuth = null;
+let cachedSupabaseAdmin = null;
+
 function supabaseAuth() {
-  return createSupabaseClient({ serviceRole: false });
+  if (!cachedSupabaseAuth) {
+    cachedSupabaseAuth = createSupabaseClient({ serviceRole: false });
+  }
+  return cachedSupabaseAuth;
 }
 
 function supabaseAdmin() {
-  return createSupabaseClient({ serviceRole: true });
-}
-
-function realtimeDatabase() {
-  return createSupabaseClient({ serviceRole: true });
-}
-
-function firebaseAuth() {
-  return createSupabaseClient({ serviceRole: false });
+  if (!cachedSupabaseAdmin) {
+    cachedSupabaseAdmin = createSupabaseClient({ serviceRole: true, requireServiceRole: true });
+  }
+  return cachedSupabaseAdmin;
 }
 
 module.exports = {
   createSupabaseClient,
-  firebaseAuth,
-  realtimeDatabase,
-  supabaseAdmin,
   supabaseAuth,
+  supabaseAdmin,
 };
