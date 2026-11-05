@@ -65,8 +65,18 @@ function supabaseAdmin() {
   return cachedSupabaseAdmin;
 }
 
+function realtimeDatabase() {
+  return supabaseAdmin();
+}
+
+function firebaseAuth() {
+  return supabaseAuth();
+}
+
 module.exports = {
   createSupabaseClient,
-  supabaseAuth,
+  firebaseAuth,
+  realtimeDatabase,
   supabaseAdmin,
+  supabaseAuth,
 };
