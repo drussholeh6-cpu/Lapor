@@ -1,4 +1,4 @@
-const { firebaseAuth } = require('../config/supabase');
+const { supabaseAuth } = require('../config/supabase');
 
 function asyncHandler(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -12,7 +12,7 @@ const requireStaff = asyncHandler(async (req, res, next) => {
 
   let userData;
   try {
-    const auth = firebaseAuth();
+    const auth = supabaseAuth();
     const { data, error } = await auth.auth.getUser(sessionCookie);
     if (error || !data?.user) {
       throw new Error('session invalid');

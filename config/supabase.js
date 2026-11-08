@@ -69,13 +69,8 @@ function realtimeDatabase() {
   return supabaseAdmin();
 }
 
-function firebaseAuth() {
-  return supabaseAuth();
-}
-
 module.exports = {
   createSupabaseClient,
-  firebaseAuth,
   realtimeDatabase,
   supabaseAdmin,
   supabaseAuth,

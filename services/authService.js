@@ -1,4 +1,4 @@
-const { firebaseAuth } = require('../config/supabase');
+const { supabaseAuth } = require('../config/supabase');
 const { AppError } = require('../core/errors');
 const { isValidEmail, normalizeText } = require('../utils/validators');
 
@@ -25,7 +25,7 @@ async function login(email, password) {
     throw new AppError('Email dan kata sandi wajib diisi.', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
-  const auth = firebaseAuth();
+  const auth = supabaseAuth();
   const { data, error } = await auth.auth.signInWithPassword({ email: normalizedEmail, password: normalizedPassword });
 
   if (error || !data?.session || !data?.user) {
@@ -58,7 +58,7 @@ async function login(email, password) {
 async function logout(sessionCookie) {
   if (sessionCookie) {
     try {
-      const auth = firebaseAuth();
+      const auth = supabaseAuth();
       await auth.auth.signOut();
     } catch {
       // ignore invalid session during logout
