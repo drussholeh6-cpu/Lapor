@@ -62,7 +62,7 @@
     </div>
     <aside class="hero-preview" aria-label="Contoh tampilan status aduan">
       <div class="preview-top"><span>CONTOH PELACAKAN</span><span class="preview-live"><i></i> DIPERBARUI</span></div>
-      <div class="preview-code">ADU-2610-0142</div>
+      <div class="preview-code">ADU-2610-014242</div>
       <p class="preview-location">Perbaikan jalan <span>·</span> Jl. Melati</p>
       <div class="preview-status"><span class="preview-status-dot"></span><span><b>Sedang diproses</b><small>Tim pemeliharaan jalan</small></span><span class="preview-arrow" aria-hidden="true">↗</span></div>
       <div class="preview-track" aria-hidden="true"><span class="complete"></span><span class="complete"></span><span class="current"></span><span></span></div>
@@ -99,9 +99,9 @@
   <p class="lead">Masukkan nomor dari bukti aduan. Anda akan melihat siapa yang menangani, sudah sampai mana, dan apa catatan petugas.</p>
   <form id="f-track" autocomplete="off">
     <label for="q">Nomor aduan</label>
-    <div class="display"><input id="q" placeholder="ADU-2610-0000" maxlength="14" spellcheck="false"><button class="btn" type="submit">Cari aduan</button></div>
+    <div class="display"><input id="q" placeholder="ADU-2610-000000" maxlength="15" pattern="ADU-\d{4}-\d{4,6}" spellcheck="false"><button class="btn" type="submit">Cari aduan</button></div>
   </form>
-  <p class="try">Contoh untuk dicoba: <button data-try="ADU-2610-0142">ADU-2610-0142</button><button data-try="ADU-2610-0138">ADU-2610-0138</button><button data-try="ADU-2610-0119">ADU-2610-0119</button></p>
+  <p class="try">Contoh untuk dicoba: <button data-try="ADU-2610-014242">ADU-2610-014242</button><button data-try="ADU-2610-013856">ADU-2610-013856</button><button data-try="ADU-2610-011934">ADU-2610-011934</button></p>
   <p class="msg" id="tmsg" role="alert"></p>
   <div id="result" aria-live="polite"></div>
 
@@ -202,6 +202,34 @@
       </section>
     </div>
     <section class="staff-panel notification-panel"><div class="panel-heading"><div><h2>Aktivitas terbaru</h2><p>Catatan perubahan yang tersimpan di browser.</p></div></div><ol id="activity-list" class="activity-list"></ol></section>
+  </div>
+
+  <div id="admin-workspace" hidden>
+    <div class="staff-heading"><div><span class="label-chip">DASHBOARD ADMIN</span><h1>Pengelolaan sistem aduan.</h1><p class="lead" id="admin-welcome"></p></div><button class="btn alt" id="admin-logout" type="button">Keluar</button></div>
+    <div class="dashboard-stats" aria-label="Ringkasan administrasi">
+      <div class="metric"><span>Semua aduan</span><b id="admin-metric-active">0</b><small>total berjalan</small></div>
+      <div class="metric metric-alert"><span>Terlambat</span><b id="admin-metric-late">0</b><small>melewati target</small></div>
+      <div class="metric metric-urgent"><span>Prioritas tinggi</span><b id="admin-metric-urgent">0</b><small>butuh perhatian</small></div>
+      <div class="metric"><span>Unit aktif</span><b id="admin-metric-units">0</b><small>yang terlibat</small></div>
+      <div class="metric"><span>Rata-rata</span><b id="admin-metric-average">0 hari</b><small>waktu penanganan</small></div>
+    </div>
+    <div class="staff-grid">
+      <section class="staff-panel">
+        <div class="panel-heading"><div><h2>Daftar aduan seluruh unit</h2><p>Admin melihat semua aduan dan dikelola dari satu pusat komando.</p></div></div>
+        <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Nomor / lokasi</th><th>Unit</th><th>Status</th><th>Prioritas</th><th>Tenggat</th></tr></thead><tbody id="admin-rows"></tbody></table></div>
+      </section>
+      <section class="staff-panel staff-editor">
+        <div class="panel-heading"><div><h2>Hak akses admin</h2><p>Peran admin mencakup seluruh operasional sistem aduan.</p></div></div>
+        <div class="case-detail">
+          <ul class="admin-list">
+            <li>Melihat semua aduan dari semua unit kerja.</li>
+            <li>Mengubah status, unit, dan prioritas aduan.</li>
+            <li>Membuat akun petugas baru dan melihat daftar petugas.</li>
+            <li>Menonaktifkan, menghapus, atau meneruskan aduan yang tidak valid.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
   </div>
 </section>
 </main>

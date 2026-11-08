@@ -566,14 +566,56 @@ function accessibleTickets() {
 
 function setStaffView() {
   const user = currentSession();
+  const isAdmin = user?.role === "admin";
   $("staff-login-view").hidden = Boolean(user);
-  $("staff-workspace").hidden = !user;
-  $("staff-nav-button").textContent = user ? "Ruang petugas" : "Masuk petugas";
+  $("staff-workspace").hidden = !user || isAdmin;
+  $("admin-workspace").hidden = !user || !isAdmin;
+  $("staff-nav-button").textContent = user
+    ? (isAdmin ? "Ruang admin" : "Ruang petugas")
+    : "Masuk petugas";
+
   if (user) {
-    $("staff-welcome").textContent =
-      `${user.name} · ${user.role === "admin" ? "Admin" : user.unit}`;
+    if (isAdmin) {
+      $("admin-welcome").textContent = `${user.name} · Administrator`;
+      renderAdminDashboard();
+      return;
+    }
+
+    $("staff-welcome").textContent = `${user.name} · ${user.unit}`;
     renderDashboard();
   }
+}
+
+function renderAdminDashboard() {
+  const cases = [...tickets].sort((a, b) => b.at.localeCompare(a.at));
+  const active = cases.filter((ticket) => !isClosed(ticket)).length;
+  const finished = cases.filter((ticket) => baseStatus(ticket) === 3);
+  const late = cases.filter(isLate).length;
+  const urgent = cases.filter((ticket) => ticket.priority !== "normal" && !isClosed(ticket)).length;
+  const units = new Set(cases.map((ticket) => ticket.unit).filter(Boolean)).size;
+  const average = finished.length
+    ? Math.round(
+        finished.reduce((total, ticket) => total + elapsedDays(ticket), 0) /
+          finished.length,
+      )
+    : 0;
+
+  $("admin-metric-active").textContent = String(active);
+  $("admin-metric-late").textContent = String(late);
+  $("admin-metric-urgent").textContent = String(urgent);
+  $("admin-metric-units").textContent = String(units);
+  $("admin-metric-average").textContent = `${average} hari`;
+
+  const rows = $("admin-rows");
+  if (!rows) return;
+  rows.innerHTML = cases.length
+    ? cases
+        .map(
+          (ticket) =>
+            `<tr data-admin-code="${escapeHtml(ticket.code)}" tabindex="0" class="${isLate(ticket) ? "is-late" : ""}"><td><b>${escapeHtml(ticket.code)}</b><small>${escapeHtml(ticket.loc)}</small></td><td>${escapeHtml(ticket.unit || "-")}</td><td><span class="pill ${statusClass(ticket)}">${escapeHtml(trackingStatus(ticket))}</span></td><td><span class="priority-tag ${priorityClass(ticket.priority)}">${priorityLabel(ticket.priority)}</span></td><td class="due-cell">${escapeHtml(dueLabel(ticket))}</td></tr>`,
+        )
+        .join("")
+    : '<tr><td colspan="5" class="empty-state">Belum ada aduan yang masuk.</td></tr>';
 }
 
 function tab(name) {
@@ -907,10 +949,13 @@ function renderMapPoint(ticket) {
 function nextCode() {
   const highest = Math.max(
     0,
-    ...tickets.map((ticket) => Number(ticket.code.slice(-4)) || 0),
+    ...tickets.map((ticket) => {
+      const match = String(ticket.code || "").match(/-(\d{4,6})$/);
+      return match ? Number(match[1]) : 0;
+    }),
   );
   const date = new Date();
-  return `ADU-${String(date.getFullYear()).slice(-2)}${String(date.getMonth() + 1).padStart(2, "0")}-${String(highest + 1).padStart(4, "0")}`;
+  return `ADU-${String(date.getFullYear()).slice(-2)}${String(date.getMonth() + 1).padStart(2, "0")}-${String(highest + 1).padStart(6, "0")}`;
 }
 
 function showMessage(element, text, kind = "error") {
@@ -1045,6 +1090,7 @@ function bindEvents() {
   $("f-login").addEventListener("submit", submitLogin);
   $("f-register-staff").addEventListener("submit", submitStaffRegistration);
   $("staff-logout").addEventListener("click", logout);
+  $("admin-logout").addEventListener("click", logout);
   $("s-t").addEventListener("change", renderCaseEditor);
   $("delete-ticket").addEventListener("click", openDeleteModal);
   $("cancel-delete").addEventListener("click", closeDeleteModal);

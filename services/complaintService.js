@@ -106,7 +106,7 @@ async function updateStaffComplaint(code, body, user) {
 }
 
 async function deleteStaffComplaints(codes) {
-  const normalized = [...new Set(codes.map((code) => String(code).toUpperCase()).filter((code) => /^ADU-\d{4,6}-\d{4,6}$/.test(code)))].slice(0, 100);
+  const normalized = [...new Set(codes.map((code) => String(code).toUpperCase()).filter((code) => /^ADU-\d{4}-\d{4,6}$/.test(code)))].slice(0, 100);
   if (!normalized.length) {
     throw new AppError('Pilih setidaknya satu nomor aduan yang valid.', { status: 400, code: 'VALIDATION_ERROR' });
   }
