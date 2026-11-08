@@ -3,6 +3,7 @@ const { AppError } = require('../core/errors');
 const {
   isValidComplaintCode,
   isValidCoordinates,
+  isValidEmail,
   isValidImageEvidence,
   normalizeText,
 } = require('../utils/validators');
@@ -53,12 +54,17 @@ async function createComplaint(body) {
   const loc = normalizeText(body?.loc || '');
   const text = normalizeText(body?.text || '');
   const name = normalizeText(body?.name || '');
+  const email = normalizeText(body?.email || '').toLowerCase();
   const priority = ['normal', 'high', 'urgent'].includes(body?.priority) ? body.priority : 'normal';
   const coordinates = normalizeCoordinates(body?.coordinates);
   const evidence = body?.evidence || null;
 
-  if (!CATEGORY_UNITS[cat] || !loc || loc.length > 200 || text.length < 15 || text.length > 5000 || name.length > 120) {
+  if (!CATEGORY_UNITS[cat] || !loc || loc.length > 200 || !text || text.length > 5000 || name.length > 120) {
     throw new AppError('Periksa kategori, lokasi, nama, dan deskripsi aduan.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  if (!email || !isValidEmail(email) || email.length > 160) {
+    throw new AppError('Email wajib diisi dengan format yang valid.', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
   if (body?.coordinates !== undefined && body?.coordinates !== null && coordinates === null) {
@@ -74,6 +80,7 @@ async function createComplaint(body) {
     loc,
     text,
     name,
+    email,
     priority,
     unit: CATEGORY_UNITS[cat],
     coordinates,
@@ -106,6 +113,10 @@ async function updateStaffComplaint(code, body, user) {
 }
 
 async function deleteStaffComplaints(codes) {
+  if (!Array.isArray(codes)) {
+    throw new AppError('Daftar aduan yang akan dihapus tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
   const normalized = [...new Set(codes.map((code) => String(code).toUpperCase()).filter((code) => /^ADU-\d{4}-\d{4,6}$/.test(code)))].slice(0, 100);
   if (!normalized.length) {
     throw new AppError('Pilih setidaknya satu nomor aduan yang valid.', { status: 400, code: 'VALIDATION_ERROR' });

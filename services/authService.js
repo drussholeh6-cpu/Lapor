@@ -22,6 +22,24 @@ function uidForEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+async function listAllAuthUsers(admin) {
+  const users = [];
+  const perPage = 1000;
+  const maxPages = 20;
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+
+    const batch = data?.users || [];
+    users.push(...batch);
+
+    if (batch.length < perPage) break;
+  }
+
+  return users;
+}
+
 function normalizeStaffPayload(input = {}, actor = null) {
   const name = normalizeText(input.name || input.staffName || '').replace(/\s+/g, ' ');
   const email = uidForEmail(input.email || '');
@@ -58,15 +76,14 @@ async function getTrustedStaffProfile(user) {
 
 async function listStaffAccounts() {
   const admin = supabaseAdmin();
-  const [{ data: usersData, error: usersError }, { data: profileRows, error: profilesError }] = await Promise.all([
-    admin.auth.admin.listUsers(),
+  const [users, profileResult] = await Promise.all([
+    listAllAuthUsers(admin).catch(() => {
+      throw new AppError('Gagal memuat akun petugas dari Supabase Auth.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
+    }),
     admin.from(STAFF_TABLE).select('*').order('created_at', { ascending: false }),
   ]);
 
-  if (usersError) {
-    throw new AppError('Gagal memuat akun petugas dari Supabase Auth.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
-  }
-
+  const { data: profileRows, error: profilesError } = profileResult;
   if (profilesError) {
     throw new AppError('Gagal memuat daftar profil petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
   }
@@ -80,7 +97,7 @@ async function listStaffAccounts() {
     if (!email || seen.has(email)) continue;
     seen.add(email);
 
-    const authUser = (usersData?.users || []).find((user) => uidForEmail(user.email || '') === email) || null;
+    const authUser = users.find((user) => uidForEmail(user.email || '') === email) || null;
     merged.push({
       id: profile.id || authUser?.id || email,
       email,
@@ -93,7 +110,7 @@ async function listStaffAccounts() {
     });
   }
 
-  for (const user of usersData?.users || []) {
+  for (const user of users) {
     const email = uidForEmail(user.email || '');
     if (!email || seen.has(email)) continue;
     seen.add(email);
@@ -139,12 +156,14 @@ async function registerStaffAccount(input = {}, actor = null) {
   const chosenUnit = chosenRole === 'admin' ? '' : normalizeText(unit || '').replace(/\s+/g, ' ');
 
   const admin = supabaseAdmin();
-  const { data: usersData, error: listUsersError } = await admin.auth.admin.listUsers();
-  if (listUsersError) {
+  let users;
+  try {
+    users = await listAllAuthUsers(admin);
+  } catch {
     throw new AppError('Gagal mengecek daftar petugas.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
   }
 
-  const existingUser = (usersData?.users || []).find((user) => uidForEmail(user.email || '') === email);
+  const existingUser = users.find((user) => uidForEmail(user.email || '') === email);
 
   if (existingUser) {
     const metadata = {

@@ -101,6 +101,7 @@ async function createComplaint(input) {
     loc: String(input.loc || '').trim(),
     text: String(input.text || '').trim(),
     name: String(input.name || '').trim(),
+    email: String(input.email || '').trim().toLowerCase(),
     at: now,
     priority: input.priority,
     unit: input.unit,

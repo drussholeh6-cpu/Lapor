@@ -34,6 +34,7 @@ async function main() {
     loc: 'Jl. Test API',
     text: 'Tes otomatis API backend untuk validasi pembuatan aduan.',
     name: 'Tester Bot',
+    email: 'tester@example.com',
     priority: 'normal',
   };
 

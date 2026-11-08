@@ -55,8 +55,16 @@ function normalizeLegacyComplaint(raw, fallbackCode) {
   if (!complaint.log || !Array.isArray(complaint.log)) complaint.log = [];
   if (!complaint.audit || !Array.isArray(complaint.audit)) complaint.audit = [];
   if (typeof complaint.waitingForInfo !== 'boolean') complaint.waitingForInfo = Boolean(complaint.waitingForInfo);
+  if (complaint.coordinates && !Array.isArray(complaint.coordinates) && typeof complaint.coordinates === 'object') {
+    const lat = Number(complaint.coordinates.lat);
+    const lng = Number(complaint.coordinates.lng ?? complaint.coordinates.lon);
+    complaint.coordinates = Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
+  }
   if (!complaint.coordinates && complaint.lat != null && complaint.lng != null) {
-    complaint.coordinates = { lat: Number(complaint.lat), lng: Number(complaint.lng) };
+    complaint.coordinates = [Number(complaint.lat), Number(complaint.lng)];
+  }
+  if (!Array.isArray(complaint.coordinates) || complaint.coordinates.length !== 2) {
+    complaint.coordinates = null;
   }
 
   complaint.code = code;
