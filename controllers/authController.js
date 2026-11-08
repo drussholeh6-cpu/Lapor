@@ -10,6 +10,30 @@ async function login(req, res) {
   }
 }
 
+async function listStaffAccounts(req, res) {
+  try {
+    const staff = await authService.listStaffAccounts();
+    return res.json(staff);
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.message });
+  }
+}
+
+async function registerStaff(req, res) {
+  try {
+    const result = await authService.registerStaffAccount({
+      name: req.body?.name,
+      email: req.body?.email,
+      password: req.body?.password,
+      role: req.body?.role || 'petugas',
+      unit: req.body?.unit || '',
+    }, req.user);
+    return res.status(201).json({ message: 'Akun petugas berhasil dibuat.', user: result });
+  } catch (error) {
+    return res.status(error.status || 400).json({ message: error.message });
+  }
+}
+
 function me(req, res) {
   return res.json({ user: req.user });
 }
@@ -27,4 +51,4 @@ async function logout(req, res) {
   return res.status(204).end();
 }
 
-module.exports = { login, logout, me };
+module.exports = { listStaffAccounts, login, logout, me, registerStaff };

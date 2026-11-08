@@ -1,7 +1,7 @@
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 const authController = require('../controllers/authController');
-const { asyncHandler, requireStaff } = require('../middleware/staffAuth');
+const { asyncHandler, requireAdmin, requireStaff } = require('../middleware/staffAuth');
 
 const router = express.Router();
 const loginLimiter = rateLimit({
@@ -12,6 +12,8 @@ const loginLimiter = rateLimit({
   message: { message: 'Terlalu banyak percobaan masuk. Coba lagi beberapa menit.' },
 });
 
+router.get('/staffs', requireAdmin, asyncHandler(authController.listStaffAccounts));
+router.post('/staffs/register', requireAdmin, loginLimiter, asyncHandler(authController.registerStaff));
 router.post('/login', loginLimiter, asyncHandler(authController.login));
 router.get('/me', requireStaff, authController.me);
 router.post('/logout', authController.logout);

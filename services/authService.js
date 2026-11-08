@@ -1,7 +1,8 @@
-const { supabaseAuth } = require('../config/supabase');
+const { supabaseAdmin, supabaseAuth } = require('../config/supabase');
 const { AppError } = require('../core/errors');
 const { isValidEmail, normalizeText } = require('../utils/validators');
 
+const STAFF_TABLE = 'staff_profiles';
 const SESSION_COOKIE = process.env.NODE_ENV === 'production'
   ? '__Host-la-session'
   : 'la-session';
@@ -15,6 +16,216 @@ function cookieOptions() {
     path: '/',
     maxAge: SESSION_DURATION_MS,
   };
+}
+
+function uidForEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function normalizeStaffPayload(input = {}, actor = null) {
+  const name = normalizeText(input.name || input.staffName || '').replace(/\s+/g, ' ');
+  const email = uidForEmail(input.email || '');
+  const requestedRole = ['admin', 'petugas'].includes(input.role) ? input.role : 'petugas';
+  const role = actor?.role === 'admin' ? requestedRole : 'petugas';
+  const unit = role === 'admin' ? '' : normalizeText(input.unit || '').replace(/\s+/g, ' ');
+  return { name, email, role, unit };
+}
+
+async function getTrustedStaffProfile(user) {
+  const admin = supabaseAdmin();
+  const byId = await admin
+    .from(STAFF_TABLE)
+    .select('*')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+
+  if (!byId.error && byId.data) {
+    return byId.data;
+  }
+
+  const byEmail = await admin
+    .from(STAFF_TABLE)
+    .select('*')
+    .eq('email', String(user.email || '').trim().toLowerCase())
+    .maybeSingle();
+
+  if (byEmail.error) {
+    throw byEmail.error;
+  }
+
+  return byEmail.data || null;
+}
+
+async function listStaffAccounts() {
+  const admin = supabaseAdmin();
+  const [{ data: usersData, error: usersError }, { data: profileRows, error: profilesError }] = await Promise.all([
+    admin.auth.admin.listUsers(),
+    admin.from(STAFF_TABLE).select('*').order('created_at', { ascending: false }),
+  ]);
+
+  if (usersError) {
+    throw new AppError('Gagal memuat akun petugas dari Supabase Auth.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
+  }
+
+  if (profilesError) {
+    throw new AppError('Gagal memuat daftar profil petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
+  }
+
+  const profiles = Array.isArray(profileRows) ? profileRows : [];
+  const merged = [];
+  const seen = new Set();
+
+  for (const profile of profiles) {
+    const email = uidForEmail(profile.email || '');
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+
+    const authUser = (usersData?.users || []).find((user) => uidForEmail(user.email || '') === email) || null;
+    merged.push({
+      id: profile.id || authUser?.id || email,
+      email,
+      name: profile.name || authUser?.user_metadata?.staffName || authUser?.user_metadata?.name || authUser?.email || profile.email,
+      role: profile.role || authUser?.app_metadata?.role || authUser?.user_metadata?.role || 'petugas',
+      unit: profile.unit || authUser?.app_metadata?.unit || authUser?.user_metadata?.unit || '',
+      status: authUser ? 'registered' : 'pending',
+      registered: Boolean(authUser),
+      createdAt: profile.created_at || authUser?.created_at || null,
+    });
+  }
+
+  for (const user of usersData?.users || []) {
+    const email = uidForEmail(user.email || '');
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+
+    const role = user.app_metadata?.role || user.user_metadata?.role || 'petugas';
+    const unit = role === 'admin' ? '' : (user.app_metadata?.unit || user.user_metadata?.unit || '');
+    merged.push({
+      id: user.id,
+      email,
+      name: user.user_metadata?.staffName || user.user_metadata?.name || user.email || 'Petugas',
+      role,
+      unit,
+      status: 'registered',
+      registered: true,
+      createdAt: user.created_at || null,
+    });
+  }
+
+  return merged.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+
+async function registerStaffAccount(input = {}, actor = null) {
+  if (!actor || actor.role !== 'admin') {
+    throw new AppError('Hanya admin yang dapat mendaftarkan akun petugas.', { status: 403, code: 'AUTH_FORBIDDEN' });
+  }
+
+  const { name, email, role, unit } = normalizeStaffPayload(input, actor);
+  const password = String(input.password || '');
+
+  if (!name || name.length < 2 || name.length > 80) {
+    throw new AppError('Nama petugas harus diisi dengan benar.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  if (!isValidEmail(email)) {
+    throw new AppError('Email petugas tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  if (!password || password.length < 6 || password.length > 128) {
+    throw new AppError('Kata sandi minimal 6 karakter.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const chosenRole = ['admin', 'petugas'].includes(role) ? role : 'petugas';
+  const chosenUnit = chosenRole === 'admin' ? '' : normalizeText(unit || '').replace(/\s+/g, ' ');
+
+  const admin = supabaseAdmin();
+  const { data: usersData, error: listUsersError } = await admin.auth.admin.listUsers();
+  if (listUsersError) {
+    throw new AppError('Gagal mengecek daftar petugas.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
+  }
+
+  const existingUser = (usersData?.users || []).find((user) => uidForEmail(user.email || '') === email);
+
+  if (existingUser) {
+    const metadata = {
+      app_metadata: {
+        ...(existingUser.app_metadata || {}),
+        role: chosenRole,
+        unit: chosenUnit,
+        staffName: name,
+      },
+      user_metadata: {
+        ...(existingUser.user_metadata || {}),
+        role: chosenRole,
+        unit: chosenUnit,
+        staffName: name,
+        name,
+      },
+    };
+
+    const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, metadata);
+    if (updateError) {
+      throw new AppError('Gagal memperbarui akun petugas yang sudah ada.', { status: 500, code: 'AUTH_USER_UPDATE_FAILED' });
+    }
+
+    const { error: profileError } = await admin.from(STAFF_TABLE)
+      .upsert({
+        email,
+        name,
+        role: chosenRole,
+        unit: chosenUnit,
+        status: 'registered',
+        auth_user_id: existingUser.id,
+      }, { onConflict: 'email' });
+
+    if (profileError) {
+      throw new AppError('Gagal menyimpan profil petugas.', { status: 500, code: 'STAFF_PROFILE_WRITE_FAILED' });
+    }
+
+    return { email, name, role: chosenRole, unit: chosenUnit, status: 'registered' };
+  }
+
+  const { data: createdUser, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      name,
+      staffName: name,
+      role: chosenRole,
+      unit: chosenUnit,
+    },
+    app_metadata: {
+      role: chosenRole,
+      unit: chosenUnit,
+      staffName: name,
+    },
+  });
+
+  if (createError) {
+    throw new AppError(createError.message || 'Gagal membuat akun petugas baru.', { status: 400, code: 'AUTH_REGISTRATION_FAILED' });
+  }
+
+  const createdId = createdUser?.user?.id;
+  if (!createdId) {
+    throw new AppError('Akun petugas dibuat, tetapi ID user tidak tersedia.', { status: 500, code: 'AUTH_USER_ID_MISSING' });
+  }
+
+  const { error: profileError } = await admin.from(STAFF_TABLE)
+    .upsert({
+      email,
+      name,
+      role: chosenRole,
+      unit: chosenUnit,
+      status: 'registered',
+      auth_user_id: createdId,
+    }, { onConflict: 'email' });
+
+  if (profileError) {
+    throw new AppError('Akun dibuat, tetapi profil petugas gagal disimpan.', { status: 500, code: 'STAFF_PROFILE_WRITE_FAILED' });
+  }
+
+  return { email, name, role: chosenRole, unit: chosenUnit, status: 'registered' };
 }
 
 async function login(email, password) {
@@ -37,7 +248,18 @@ async function login(email, password) {
     throw new AppError('Sesi tidak valid.', { status: 401, code: 'AUTH_SESSION_INVALID' });
   }
 
-  const role = userData.user.app_metadata?.role || userData.user.user_metadata?.role;
+  let trustedProfile;
+  try {
+    trustedProfile = await getTrustedStaffProfile(userData.user);
+  } catch (error) {
+    throw new AppError('Akun belum aktif atau belum terdaftar sebagai petugas.', { status: 403, code: 'AUTH_FORBIDDEN' });
+  }
+
+  if (!trustedProfile || trustedProfile.status !== 'registered') {
+    throw new AppError('Akun belum aktif atau belum terdaftar sebagai petugas.', { status: 403, code: 'AUTH_FORBIDDEN' });
+  }
+
+  const role = trustedProfile.role;
   if (!['admin', 'petugas'].includes(role)) {
     throw new AppError('Akun belum diberi peran petugas oleh administrator.', { status: 403, code: 'AUTH_FORBIDDEN' });
   }
@@ -47,10 +269,10 @@ async function login(email, password) {
     cookieOptions: cookieOptions(),
     sessionToken: data.session.access_token,
     user: {
-      name: userData.user.user_metadata?.staffName || userData.user.user_metadata?.name || userData.user.email || 'Petugas',
-      email: userData.user.email || '',
+      name: trustedProfile.name || userData.user.user_metadata?.staffName || userData.user.user_metadata?.name || userData.user.email || 'Petugas',
+      email: trustedProfile.email || userData.user.email || '',
       role,
-      unit: userData.user.app_metadata?.unit || userData.user.user_metadata?.unit || '',
+      unit: trustedProfile.unit || '',
     },
   };
 }
@@ -79,6 +301,8 @@ async function logout(sessionCookie) {
 module.exports = {
   SESSION_COOKIE,
   cookieOptions,
+  listStaffAccounts,
   login,
   logout,
+  registerStaffAccount,
 };

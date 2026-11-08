@@ -141,6 +141,32 @@
       <p class="msg" id="login-error" role="alert"></p>
       <button class="btn" type="submit">Masuk</button>
     </form>
+
+    <form id="f-register-staff" class="login-form" autocomplete="off">
+      <h2>Daftar petugas</h2>
+      <label for="register-name">Nama lengkap</label>
+      <input id="register-name" type="text" required placeholder="Nama petugas">
+      <label for="register-email">Email</label>
+      <input id="register-email" type="email" required placeholder="petugas@desa.go.id">
+      <label for="register-unit">Unit kerja</label>
+      <select id="register-unit">
+        <option value="Seksi Pemeliharaan Jalan">Seksi Pemeliharaan Jalan</option>
+        <option value="Dinas Kebersihan">Dinas Kebersihan</option>
+        <option value="Seksi Sarana Umum">Seksi Sarana Umum</option>
+        <option value="Tim Drainase">Tim Drainase</option>
+        <option value="Bagian Pelayanan Kelurahan">Bagian Pelayanan Kelurahan</option>
+        <option value="Koordinasi Lintas Instansi">Koordinasi Lintas Instansi</option>
+      </select>
+      <label for="register-pass">Kata sandi</label>
+      <input id="register-pass" type="password" required minlength="6" placeholder="Minimal 6 karakter">
+      <p class="msg" id="register-error" role="alert"></p>
+      <button class="btn alt" type="submit">Buat akun petugas</button>
+    </form>
+
+    <div class="login-form staff-directory-panel">
+      <h2>Daftar petugas</h2>
+      <ul id="staff-directory-list" class="staff-directory-list"></ul>
+    </div>
   </div>
   <div id="staff-workspace" hidden>
     <div class="staff-heading"><div><span class="label-chip">DASHBOARD PETUGAS</span><h1>Ringkasan penanganan.</h1><p class="lead" id="staff-welcome"></p></div><button class="btn alt" id="staff-logout" type="button">Keluar</button></div>

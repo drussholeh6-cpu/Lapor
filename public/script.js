@@ -577,7 +577,10 @@ function setStaffView() {
 }
 
 function tab(name) {
-  if (name === "petugas" && !currentSession()) setStaffView();
+  if (name === "petugas" && !currentSession()) {
+    renderStaffDirectory();
+    setStaffView();
+  }
   document.querySelectorAll("nav button").forEach((button) => {
     button.setAttribute("aria-selected", String(button.dataset.tab === name));
   });
@@ -1040,6 +1043,7 @@ function bindEvents() {
   });
   $("f-new").addEventListener("submit", submitNewTicket);
   $("f-login").addEventListener("submit", submitLogin);
+  $("f-register-staff").addEventListener("submit", submitStaffRegistration);
   $("staff-logout").addEventListener("click", logout);
   $("s-t").addEventListener("change", renderCaseEditor);
   $("delete-ticket").addEventListener("click", openDeleteModal);
@@ -1109,6 +1113,59 @@ function bindEvents() {
     localStorage.setItem("la-seen", String(Date.now()));
     renderActivity(accessibleTickets());
   });
+}
+
+async function renderStaffDirectory() {
+  try {
+    const data = await apiRequest('/auth/staffs');
+    const list = $("staff-directory-list");
+    if (!list) return;
+
+    if (!Array.isArray(data) || !data.length) {
+      list.innerHTML = '<li class="empty-row">Belum ada petugas yang terdaftar.</li>';
+      return;
+    }
+
+    list.innerHTML = data.map((staff) => `
+      <li class="staff-row">
+        <div>
+          <strong>${escapeHtml(staff.name || staff.email || 'Petugas')}</strong>
+          <small>${escapeHtml(staff.email || '')}</small>
+          <small>${escapeHtml(staff.unit || 'Unit belum ditetapkan')}</small>
+        </div>
+        <span class="staff-status ${staff.registered ? 'ready' : 'pending'}">${staff.registered ? 'Terdaftar' : 'Belum dibuat'}</span>
+      </li>
+    `).join('');
+  } catch (error) {
+    const list = $("staff-directory-list");
+    if (list) {
+      list.innerHTML = `<li class="empty-row">${escapeHtml(error.message)}</li>`;
+    }
+  }
+}
+
+async function submitStaffRegistration(event) {
+  event.preventDefault();
+  const name = $("register-name").value.trim();
+  const email = $("register-email").value.trim();
+  const unit = $("register-unit").value;
+  const password = $("register-pass").value;
+  $("register-error").textContent = "";
+
+  try {
+    const result = await apiRequest('/auth/staffs/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, unit, role: 'petugas', password }),
+    });
+
+    $("f-register-staff").reset();
+    $("register-error").textContent = result?.message || 'Akun petugas berhasil dibuat.';
+    $("register-error").classList.add('success-msg');
+    await renderStaffDirectory();
+  } catch (error) {
+    $("register-error").textContent = error.message;
+    $("register-error").classList.remove('success-msg');
+  }
 }
 
 async function submitLogin(event) {
