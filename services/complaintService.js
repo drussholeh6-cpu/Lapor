@@ -49,6 +49,17 @@ async function getComplaintByCode(code) {
   return publicComplaint(complaint);
 }
 
+async function getComplaintReceipt(code, email) {
+  if (!validCode(code) || !isValidEmail(email)) return null;
+
+  const complaint = await complaintModel.findComplaintByCode(String(code).toUpperCase());
+  if (!complaint || String(complaint.email || '').trim().toLowerCase() !== email.trim().toLowerCase()) {
+    return null;
+  }
+
+  return complaint;
+}
+
 async function createComplaint(body) {
   const cat = normalizeText(body?.cat || '');
   const loc = normalizeText(body?.loc || '');
@@ -161,6 +172,7 @@ module.exports = {
   createComplaint,
   deleteStaffComplaints,
   getComplaintByCode,
+  getComplaintReceipt,
   listComplaints,
   listStaffComplaints,
   submitRating,

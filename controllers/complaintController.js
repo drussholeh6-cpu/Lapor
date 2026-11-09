@@ -1,4 +1,5 @@
 const complaintService = require('../services/complaintService');
+const emailService = require('../services/emailService');
 
 async function listComplaints(req, res) {
   const complaints = await complaintService.listComplaints();
@@ -13,11 +14,63 @@ async function getComplaintByCode(req, res) {
 
 async function createComplaint(req, res) {
   try {
-    const complaint = await complaintService.createComplaint(req.body || {});
-    return res.status(201).json(complaint);
+    emailService.assertConfigured();
+  } catch (error) {
+    console.error(`Email konfirmasi belum dikonfigurasi: ${error.message}`);
+    return res.status(503).json({
+      message: 'Aduan belum dikirim. Layanan email konfirmasi belum siap. Silakan coba kembali nanti.',
+      code: 'EMAIL_SERVICE_UNAVAILABLE',
+    });
+  }
+
+  let complaint;
+  try {
+    complaint = await complaintService.createComplaint(req.body || {});
   } catch (error) {
     return res.status(error.status || 400).json({ message: error.message });
   }
+
+  try {
+    await emailService.sendComplaintReceipt({
+      complaint,
+      recipientEmail: String(req.body?.email || '').trim().toLowerCase(),
+      recipientName: String(req.body?.name || '').trim(),
+    });
+  } catch (error) {
+    console.error(`Gagal mengirim email konfirmasi aduan ${complaint.code}: ${error.message}`);
+    return res.status(502).json({
+      message: 'Aduan sudah tersimpan, tetapi email konfirmasi belum terkirim. Jangan kirim aduan baru; gunakan tombol kirim ulang email.',
+      code: 'EMAIL_DELIVERY_FAILED',
+      complaintSaved: true,
+      complaintCode: complaint.code,
+    });
+  }
+
+  return res.status(201).json({ ...complaint, emailDelivery: { sent: true } });
+}
+
+async function resendComplaintReceipt(req, res) {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const complaint = await complaintService.getComplaintReceipt(req.params.code, email);
+  if (!complaint) {
+    return res.status(404).json({ message: 'Nomor aduan atau email tidak cocok.', code: 'COMPLAINT_NOT_FOUND' });
+  }
+
+  try {
+    await emailService.sendComplaintReceipt({
+      complaint,
+      recipientEmail: email,
+      recipientName: complaint.name,
+    });
+  } catch (error) {
+    console.error(`Gagal mengirim ulang email konfirmasi aduan ${complaint.code}: ${error.message}`);
+    return res.status(502).json({
+      message: 'Email belum berhasil dikirim. Periksa konfigurasi layanan email atau coba kembali nanti.',
+      code: 'EMAIL_DELIVERY_FAILED',
+    });
+  }
+
+  return res.json({ sent: true });
 }
 
 async function listStaffComplaints(req, res) {
@@ -74,6 +127,7 @@ module.exports = {
   getComplaintByCode,
   listComplaints,
   listStaffComplaints,
+  resendComplaintReceipt,
   submitRating,
   submitResidentReply,
   updateStaffComplaint,

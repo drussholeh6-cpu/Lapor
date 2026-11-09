@@ -262,6 +262,8 @@ async function apiRequest(path, options = {}) {
   if (!response.ok) {
     const error = new Error(payload?.message || 'Permintaan API gagal.');
     error.status = response.status;
+    error.code = payload?.code;
+    error.payload = payload;
     throw error;
   }
 
@@ -1249,12 +1251,46 @@ function closeCaptchaModal(restoreFocus = true) {
   if (restoreFocus) $('submit-complaint')?.focus();
 }
 
-function renderMade(ticket) {
+function renderMade(ticket, emailDelivery, recipientEmail) {
   const made = $('made');
   if (!made) return;
 
+  const emailSent = emailDelivery?.sent === true;
+  const heading = emailSent ? 'Catat nomor ini.' : 'Aduan tersimpan.';
+  const label = emailSent ? 'Aduan terkirim' : 'Email konfirmasi diperlukan';
+  const emailNotice = emailSent
+    ? `<div class="email-delivery email-delivery--sent"><span class="email-delivery-icon" aria-hidden="true">✓</span><span><b>Konfirmasi terkirim ke email</b><small>${escapeHtml(recipientEmail)}</small></span></div>`
+    : `<div class="email-delivery email-delivery--failed"><span class="email-delivery-icon" aria-hidden="true">!</span><span><b>Email konfirmasi belum terkirim</b><small>Gunakan tombol kirim ulang. Aduan tidak perlu dikirim ulang.</small></span></div>`;
+  const resendButton = emailSent
+    ? ''
+    : '<button class="btn btn-dark" id="m-resend" type="button">Kirim ulang email</button>';
+
   made.hidden = false;
-  made.innerHTML = `<span class="label-chip soft">Aduan terkirim</span><h2>Catat nomor ini.</h2><div class="slip"><div class="slip-h"><div><div class="code">${escapeHtml(ticket.code)}</div><p class="meta">Simpan nomor ini untuk melacak perkembangan aduan.</p></div><div class="stamp s-go">Diterima</div></div></div><div class="done-actions"><button class="btn btn-dark" id="m-cp" type="button">Salin nomor</button><button class="btn btn-ghost" id="m-go" type="button">Lihat progres</button><button class="btn btn-ghost" id="m-new" type="button">Buat aduan lain</button></div><p class="done-hint" id="m-h"></p>`;
+  made.innerHTML = `<span class="label-chip soft">${label}</span><h2>${heading}</h2><div class="slip"><div class="slip-h"><div><div class="code">${escapeHtml(ticket.code)}</div><p class="meta">Simpan nomor ini untuk melacak perkembangan aduan.</p></div><div class="stamp s-go">Diterima</div></div></div>${emailNotice}<div class="done-actions">${resendButton}<button class="btn ${emailSent ? 'btn-dark' : 'btn-ghost'}" id="m-cp" type="button">Salin nomor</button><button class="btn btn-ghost" id="m-go" type="button">Lihat progres</button><button class="btn btn-ghost" id="m-new" type="button">Buat aduan lain</button></div><p class="done-hint" id="m-h"></p>`;
+
+  $('m-resend')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true, 'Mengirim ulang…');
+    try {
+      await apiRequest(`/complaints/${encodeURIComponent(ticket.code)}/confirmation`, {
+        method: 'POST',
+        body: JSON.stringify({ email: recipientEmail }),
+      });
+      const notice = made.querySelector('.email-delivery');
+      notice.className = 'email-delivery email-delivery--sent';
+      notice.innerHTML = `<span class="email-delivery-icon" aria-hidden="true">✓</span><span><b>Konfirmasi terkirim ke email</b><small>${escapeHtml(recipientEmail)}</small></span>`;
+      made.querySelector('.label-chip').textContent = 'Aduan terkirim';
+      made.querySelector('h2').textContent = 'Catat nomor ini.';
+      button.remove();
+      $('m-h').textContent = 'Email konfirmasi berhasil dikirim.';
+      toast('Email konfirmasi berhasil dikirim.', 'success');
+    } catch (error) {
+      $('m-h').textContent = error.message;
+      toast(error.message, 'error');
+    } finally {
+      if (button.isConnected) setLoading(button, false);
+    }
+  });
 
   $('m-cp')?.addEventListener('click', async () => {
     try {
@@ -1354,8 +1390,30 @@ async function submitNewTicket(event) {
 
   let created;
   try {
-    created = normalizeTicket(await apiRequest('/complaints', { method: 'POST', body: JSON.stringify(payload) }));
+    const response = await apiRequest('/complaints', { method: 'POST', body: JSON.stringify(payload) });
+    if (response?.emailDelivery?.sent !== true) {
+      throw Object.assign(new Error('Email konfirmasi belum berhasil dikirim.'), {
+        code: 'EMAIL_DELIVERY_FAILED',
+        payload: { complaintSaved: true, complaintCode: response?.code },
+      });
+    }
+    created = normalizeTicket(response);
   } catch (apiError) {
+    if (apiError.code === 'EMAIL_DELIVERY_FAILED' && apiError.payload?.complaintSaved && apiError.payload?.complaintCode) {
+      created = normalizeTicket({
+        ...payload,
+        code: apiError.payload.complaintCode,
+        at: nowIso(),
+        waitingForInfo: false,
+        log: [{ s: 0, at: nowIso(), by: 'Sistem', note: 'Aduan diterima.' }],
+      });
+      tickets.push(created);
+      $('f-new').hidden = true;
+      renderBoard();
+      renderMade(created, { sent: false }, email);
+      toast(apiError.message, 'error', 7000);
+      return;
+    }
     error.textContent = apiError.message;
     toast(apiError.message, 'error');
     return;
@@ -1366,8 +1424,8 @@ async function submitNewTicket(event) {
   tickets.push(created);
   $('f-new').hidden = true;
   renderBoard();
-  renderMade(created);
-  toast('Aduan berhasil dikirim. Simpan nomor pelacakan Anda.', 'success', 6000);
+  renderMade(created, { sent: true }, email);
+  toast('Aduan terkirim dan nomor aduan telah dikirim ke email Anda.', 'success', 6000);
 }
 
 /* ─── Resident reply & rating ─── */

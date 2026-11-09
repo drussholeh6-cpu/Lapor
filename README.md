@@ -40,7 +40,15 @@ PORT=3000
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+BREVO_API_KEY=your-brevo-api-key
+BREVO_SENDER_EMAIL=noreply@mail.badrussholeh.my.id
+BREVO_SENDER_NAME=Lacak Aduan
+PUBLIC_APP_URL=http://localhost:3000
 ```
+
+Email pengonfirmasi nomor aduan dikirim melalui API transaksi Brevo dengan template HTML responsif dan versi teks alternatif. Di Brevo, verifikasi domain pengirim dan daftarkan alamat pengirim yang sama dengan `BREVO_SENDER_EMAIL`. Simpan `BREVO_API_KEY` hanya di environment lokal atau platform deployment, jangan di frontend maupun repository. Saat deploy ke Vercel, atur variabel tersebut di **Project Settings → Environment Variables** dan isi `PUBLIC_APP_URL` dengan URL HTTPS aplikasi.
+
+Email konfirmasi wajib berhasil dikirim agar pengajuan dianggap berhasil. Kredensial atau konfigurasi yang belum tersedia akan menolak pengajuan sebelum menyimpan aduan. Jika Brevo mengalami gangguan setelah aduan tersimpan, aplikasi menampilkan nomor aduan dan tombol **Kirim ulang email**; pengiriman ulang dibatasi 5 kali per jam.
 
 ## Role petugas
 
@@ -84,7 +92,7 @@ Buka `http://localhost:3000`.
 1. Push repository ke GitHub.
 2. Di Vercel pilih Add New → Project.
 3. Pilih branch `main` dan framework preset `Other`.
-4. Tambahkan environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, dan `NODE_ENV=production`.
+4. Tambahkan environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `PUBLIC_APP_URL`, dan `NODE_ENV=production`.
 5. Deploy.
 
 ## API utama
