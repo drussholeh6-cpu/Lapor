@@ -11,6 +11,8 @@ const THEME_KEY = 'la-theme';
 const SEEN_KEY = 'la-seen';
 const LOCATION_KEY = 'la-location';
 let captchaActivated = false;
+let addressLookupTimer;
+let addressLookupSequence = 0;
 
 const CATS = [
   'Jalan rusak',
@@ -122,8 +124,22 @@ async function reverseGeocodeLocation(latitude, longitude) {
     const data = await response.json();
     const address = data?.address || {};
     const road = address.road || address.street || '';
-    const village = address.village || address.suburb || address.city || address.town || address.municipality || '';
-    const district = address.subdistrict || address.district || '';
+    const locality = address.neighbourhood || address.village || address.suburb || address.hamlet || address.quarter || '';
+    const district = address.city_district || address.district || address.subdistrict || '';
+    const administrativeArea = [
+      address.county,
+      address.state_district,
+      address.city,
+      address.town,
+      address.municipality,
+    ].find((part) => /^(kota|kabupaten)\s/i.test(part || ''))
+      || address.city
+      || address.town
+      || address.municipality
+      || address.county
+      || address.state_district
+      || '';
+    const province = address.state || address.province || address.region || '';
     const parts = [];
 
     if (road) {
@@ -131,13 +147,36 @@ async function reverseGeocodeLocation(latitude, longitude) {
       const roadText = /^(jl|jalan)/i.test(normalizedRoad) ? normalizedRoad : `Jl. ${normalizedRoad}`;
       parts.push(roadText);
     }
-    if (village && !parts.includes(village)) parts.push(village);
-    if (district && !parts.includes(district)) parts.push(district);
+    [locality, district, administrativeArea, province, address.country].forEach((part) => {
+      if (!part) return;
+      const normalizedPart = part.trim().toLocaleLowerCase('id-ID').replace(/^(kota|kabupaten)\s+/, '');
+      const isDuplicate = parts.some((existing) => (
+        existing.trim().toLocaleLowerCase('id-ID').replace(/^(kota|kabupaten)\s+/, '') === normalizedPart
+      ));
+      if (!isDuplicate) parts.push(part.trim());
+    });
 
-    return parts.join(', ') || data?.display_name?.split(',').slice(0, 3).join(', ') || '';
+    return parts.join(', ') || data?.display_name?.split(',').slice(0, 6).join(', ') || '';
   } catch {
     return '';
   }
+}
+
+function lookupAddressForPoint(latitude, longitude) {
+  const lookupSequence = ++addressLookupSequence;
+  const currentLocation = $('n-loc')?.value || '';
+  window.clearTimeout(addressLookupTimer);
+  addressLookupTimer = window.setTimeout(async () => {
+    const address = await reverseGeocodeLocation(latitude, longitude);
+    const locationInput = $('n-loc');
+    if (
+      address
+      && lookupSequence === addressLookupSequence
+      && locationInput?.value === currentLocation
+    ) {
+      locationInput.value = address;
+    }
+  }, 1000);
 }
 
 /* ─── Theme ─── */
@@ -758,6 +797,8 @@ function renderStaffTable(cases = accessibleTickets()) {
   const visible = filteredStaffCases(cases).sort(
     (a, b) => Number(isClosed(a)) - Number(isClosed(b)) || String(b.at || '').localeCompare(String(a.at || '')),
   );
+  const availableCodes = new Set(cases.map((ticket) => ticket.code));
+  selectedBulkTicketCodes = new Set([...selectedBulkTicketCodes].filter((code) => availableCodes.has(code)));
 
   rows.innerHTML = visible.length
     ? visible
@@ -777,6 +818,14 @@ function renderStaffTable(cases = accessibleTickets()) {
     checkbox.checked = visibleAllSelected;
     checkbox.indeterminate = !visibleAllSelected && anySelected;
   });
+
+  const deleteSelected = $('delete-selected');
+  if (deleteSelected) {
+    deleteSelected.disabled = selectedBulkTicketCodes.size === 0;
+    deleteSelected.textContent = selectedBulkTicketCodes.size
+      ? `Hapus terpilih (${selectedBulkTicketCodes.size})`
+      : 'Hapus terpilih';
+  }
 
   fillStaffSelect(cases);
 }
@@ -1111,7 +1160,10 @@ function ensurePickerMap() {
   if (!pickerMap) {
     pickerMap = makeMap('location-picker', 'picker-fallback');
     if (!pickerMap) return;
-    pickerMap.on('click', (event) => setPickerLocation(event.latlng.lat, event.latlng.lng));
+    pickerMap.on('click', (event) => {
+      setPickerLocation(event.latlng.lat, event.latlng.lng);
+      lookupAddressForPoint(event.latlng.lat, event.latlng.lng);
+    });
     drawUserMarker(pickerMap);
   }
 
@@ -1163,6 +1215,8 @@ async function locateUser() {
 
   try {
     const location = await requestUserLocation(true);
+    addressLookupSequence += 1;
+    window.clearTimeout(addressLookupTimer);
     setPickerLocation(location[0], location[1]);
     const address = await reverseGeocodeLocation(location[0], location[1]);
     if (address) $('n-loc').value = address;
@@ -1711,11 +1765,15 @@ async function executeDeleteTicket() {
   }
 
   setLoading(confirm, true, 'Menghapus…');
+  let result;
   try {
-    await apiRequest('/staff/complaints', {
+    result = await apiRequest('/staff/complaints', {
       method: 'DELETE',
       body: JSON.stringify({ codes }),
     });
+    if (!Array.isArray(result?.deletedCodes)) {
+      throw new Error('Respons penghapusan tidak valid. Muat ulang daftar aduan.');
+    }
   } catch (error) {
     if (sessionExpired(error)) {
       closeDeleteModal();
@@ -1729,14 +1787,24 @@ async function executeDeleteTicket() {
     setLoading(confirm, false);
   }
 
-  staffTickets = staffTickets.filter((ticket) => !codes.includes(ticket.code));
-  tickets = tickets.filter((ticket) => !codes.includes(ticket.code));
+  const deletedCodes = result.deletedCodes;
+  if (!deletedCodes.length) {
+    selectedBulkTicketCodes.clear();
+    $('smsg').textContent = 'Aduan yang dipilih tidak ditemukan atau sudah dihapus.';
+    toast($('smsg').textContent, 'error');
+    closeDeleteModal();
+    renderDashboard();
+    return;
+  }
+
+  staffTickets = staffTickets.filter((ticket) => !deletedCodes.includes(ticket.code));
+  tickets = tickets.filter((ticket) => !deletedCodes.includes(ticket.code));
   selectedBulkTicketCodes = new Set();
   deleteTargetCodes = [];
   selectedTicketCode = '';
   closeDeleteModal();
-  $('smsg').textContent = `${codes.length} aduan berhasil dihapus.`;
-  toast(`${codes.length} aduan dihapus.`, 'success');
+  $('smsg').textContent = `${deletedCodes.length} aduan berhasil dihapus.`;
+  toast(`${deletedCodes.length} aduan dihapus.`, 'success');
   renderBoard();
   renderDashboard();
 }
@@ -1755,13 +1823,38 @@ async function renderStaffDirectory() {
     }
 
     list.innerHTML = data
-      .map(
-        (staff) => `<li class="staff-row"><div><strong>${escapeHtml(staff.name || staff.email || 'Petugas')}</strong><small>${escapeHtml(staff.email || '')}</small><small>${escapeHtml(staff.unit || 'Unit belum ditetapkan')}</small></div><span class="staff-status ${staff.registered ? 'ready' : 'pending'}">${staff.registered ? 'Terdaftar' : 'Belum dibuat'}</span></li>`,
-      )
+      .map((staff) => {
+        const status = staff.registered ? 'Terdaftar' : 'Belum dibuat';
+        const removeButton = staff.role === 'petugas'
+          ? `<button class="btn btn-danger btn-small" type="button" data-delete-staff="${escapeHtml(staff.email)}" aria-label="Hapus akun ${escapeHtml(staff.name || staff.email)}">Hapus akun</button>`
+          : '';
+        return `<li class="staff-row"><div class="staff-row-info"><strong>${escapeHtml(staff.name || staff.email || 'Petugas')}</strong><small>${escapeHtml(staff.email || '')}</small><small>${escapeHtml(staff.unit || 'Unit belum ditetapkan')}</small></div><div class="staff-row-actions"><span class="staff-status ${staff.registered ? 'ready' : 'pending'}">${status}</span>${removeButton}</div></li>`;
+      })
       .join('');
   } catch (error) {
     if (sessionExpired(error)) return;
     list.innerHTML = `<li class="empty-row">${escapeHtml(error.message)}</li>`;
+  }
+}
+
+async function deleteStaffAccount(button) {
+  const email = button.dataset.deleteStaff;
+  if (!email || !window.confirm(`Hapus akun petugas ${email}? Petugas tidak akan bisa masuk lagi.`)) return;
+
+  setLoading(button, true, 'Menghapus…');
+  try {
+    const result = await apiRequest('/auth/staffs', {
+      method: 'DELETE',
+      body: JSON.stringify({ email }),
+    });
+    toast(result?.message || 'Akun petugas berhasil dihapus.', 'success');
+    await renderStaffDirectory();
+  } catch (error) {
+    if (sessionExpired(error)) return;
+    toast(error.message, 'error');
+    await renderStaffDirectory();
+  } finally {
+    if (button.isConnected) setLoading(button, false);
   }
 }
 
@@ -1946,6 +2039,11 @@ function bindEvents() {
       $('smsg').textContent = 'Pilih minimal satu aduan untuk dihapus.';
       return;
     }
+    if (codes.length > 100) {
+      $('smsg').textContent = 'Maksimal 100 aduan dapat dihapus sekaligus. Kurangi pilihan atau gunakan filter.';
+      toast($('smsg').textContent, 'error');
+      return;
+    }
     deleteTargetCodes = codes;
     $('delete-modal-text').textContent = `Apakah Anda yakin ingin menghapus ${codes.length} aduan yang dipilih? Tindakan ini permanen.`;
     $('delete-modal').hidden = false;
@@ -1959,23 +2057,29 @@ function bindEvents() {
   });
 
   ['filter-status', 'filter-priority'].forEach((id) => {
-    $(id)?.addEventListener('change', () => renderStaffTable());
+    $(id)?.addEventListener('change', () => {
+      selectedBulkTicketCodes.clear();
+      renderStaffTable();
+    });
   });
 
   $('staff-rows')?.addEventListener('click', (event) => {
     const checkbox = event.target.closest('input[data-select-ticket]');
-    if (checkbox) {
-      const code = checkbox.dataset.selectTicket;
-      if (checkbox.checked) selectedBulkTicketCodes.add(code);
-      else selectedBulkTicketCodes.delete(code);
-      return;
-    }
+    if (checkbox) return;
 
     const row = event.target.closest('tr[data-staff-code]');
     if (!row) return;
     selectedTicketCode = row.dataset.staffCode;
     $('s-t').value = selectedTicketCode;
     renderCaseEditor();
+  });
+
+  $('staff-rows')?.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('input[data-select-ticket]');
+    if (!checkbox) return;
+    if (checkbox.checked) selectedBulkTicketCodes.add(checkbox.dataset.selectTicket);
+    else selectedBulkTicketCodes.delete(checkbox.dataset.selectTicket);
+    renderStaffTable();
   });
 
   $('staff-rows')?.addEventListener('keydown', (event) => {
@@ -2000,6 +2104,11 @@ function bindEvents() {
       else visible.forEach((ticket) => selectedBulkTicketCodes.delete(ticket.code));
       renderStaffTable();
     });
+  });
+
+  $('staff-directory-list')?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-delete-staff]');
+    if (button) deleteStaffAccount(button);
   });
 
   $('result')?.addEventListener('submit', (event) => {

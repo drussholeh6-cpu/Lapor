@@ -123,17 +123,28 @@ async function updateStaffComplaint(code, body, user) {
   return complaintModel.applyStaffAction(String(code).toUpperCase(), body, user);
 }
 
-async function deleteStaffComplaints(codes) {
+async function deleteStaffComplaints(codes, user) {
+  if (user?.role !== 'admin') {
+    throw new AppError('Hanya admin yang dapat menghapus aduan.', { status: 403, code: 'AUTH_FORBIDDEN' });
+  }
+
   if (!Array.isArray(codes)) {
     throw new AppError('Daftar aduan yang akan dihapus tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
-  const normalized = [...new Set(codes.map((code) => String(code).toUpperCase()).filter((code) => /^ADU-\d{4}-\d{4,6}$/.test(code)))].slice(0, 100);
+  const normalized = [...new Set(codes.map((code) => String(code).toUpperCase()))];
+  if (normalized.some((code) => !/^ADU-\d{4}-\d{4,6}$/.test(code))) {
+    throw new AppError('Daftar aduan memuat nomor yang tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
   if (!normalized.length) {
     throw new AppError('Pilih setidaknya satu nomor aduan yang valid.', { status: 400, code: 'VALIDATION_ERROR' });
   }
+  if (normalized.length > 100) {
+    throw new AppError('Maksimal 100 aduan dapat dihapus dalam satu kali tindakan.', { status: 400, code: 'BULK_DELETE_LIMIT' });
+  }
 
-  await complaintModel.deleteComplaints(normalized);
+  return complaintModel.deleteComplaints(normalized);
 }
 
 async function submitResidentReply(code, note) {

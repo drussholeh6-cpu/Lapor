@@ -209,13 +209,15 @@ async function addRating(code, score, comment) {
 }
 
 async function deleteComplaints(codes) {
-  if (!codes.length) return;
-  const { error } = await realtimeDatabase()
+  if (!codes.length) return [];
+  const { data, error } = await realtimeDatabase()
     .from(COMPLAINTS_TABLE)
     .delete()
-    .in('code', codes);
+    .in('code', codes)
+    .select('code');
 
   if (error) throw error;
+  return (data || []).map((row) => row.code);
 }
 
 module.exports = {

@@ -55,7 +55,7 @@ function buildComplaintReceipt({ complaint, recipientName }) {
   }).format(new Date(complaint.at));
   const appUrl = getPublicAppUrl();
   const trackingLink = appUrl
-    ? `<a href="${escapeHtml(appUrl)}" style="display:inline-block;padding:14px 22px;border-radius:12px;background:#d8f36b;color:#0b1f17;text-decoration:none;font-size:14px;font-weight:700;">Lacak perkembangan aduan&nbsp; &rarr;</a>`
+    ? `<a href="${escapeHtml(appUrl)}" style="display:inline-block;padding:13px 20px;border-radius:8px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Lacak perkembangan aduan&nbsp; &rarr;</a>`
     : '';
   const trackingInstruction = appUrl
     ? 'Buka Lacak Aduan dan masukkan nomor di atas untuk melihat perkembangannya.'
@@ -64,46 +64,46 @@ function buildComplaintReceipt({ complaint, recipientName }) {
   const htmlContent = `<!doctype html>
 <html lang="id">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"></head>
-<body style="margin:0;padding:0;background:#f2f4ef;font-family:Arial,Helvetica,sans-serif;color:#14231c;">
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Aduan ${escapeHtml(code)} sudah kami terima. Simpan nomor ini untuk memantau tindak lanjutnya.</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f2f4ef;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f1f5f9;">
     <tr><td align="center" style="padding:34px 14px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #e4e9e1;border-radius:20px;overflow:hidden;">
-        <tr><td style="padding:32px 36px;background:#0b1f17;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <tr><td style="padding:30px 36px;background:#0f172a;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
-            <td align="center" width="38" height="38" style="width:38px;height:38px;border-radius:12px;background:#d8f36b;color:#0b1f17;font-size:15px;font-weight:800;">LA</td>
+            <td align="center" width="38" height="38" style="width:38px;height:38px;border-radius:8px;background:#2563eb;color:#ffffff;font-size:15px;font-weight:800;">LA</td>
             <td style="padding-left:11px;color:#ffffff;font-size:15px;font-weight:700;">Lacak Aduan</td>
           </tr></table>
-          <p style="margin:29px 0 9px;color:#d8f36b;font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;">Konfirmasi pengaduan</p>
+          <p style="margin:26px 0 9px;color:#bfdbfe;font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;">Konfirmasi pengaduan</p>
           <h1 style="margin:0;color:#ffffff;font-size:30px;line-height:1.2;font-weight:700;">Aduan Anda telah<br>kami terima.</h1>
-          <p style="margin:12px 0 0;color:#c5d0c8;font-size:14px;line-height:1.7;">Terima kasih telah membantu menyampaikan hal yang perlu diperhatikan di lingkungan kita.</p>
+          <p style="margin:12px 0 0;color:#cbd5e1;font-size:14px;line-height:1.7;">Terima kasih telah membantu menyampaikan hal yang perlu diperhatikan di lingkungan kita.</p>
         </td></tr>
         <tr><td style="padding:30px 36px 34px;">
           <p style="margin:0 0 8px;font-size:15px;line-height:1.6;">Halo <strong>${escapeHtml(name)}</strong>,</p>
-          <p style="margin:0;color:#637168;font-size:13px;line-height:1.7;">Laporan Anda sudah tercatat di sistem. Simpan nomor aduan di bawah ini untuk memantau proses penanganan.</p>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:23px 0;border:1px solid #e4e9e1;border-radius:14px;background:#f7f9f5;">
+          <p style="margin:0;color:#475569;font-size:13px;line-height:1.7;">Laporan Anda sudah tercatat di sistem. Simpan nomor aduan di bawah ini untuk memantau proses penanganan.</p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:23px 0;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;">
             <tr><td style="padding:18px 20px;">
-              <p style="margin:0 0 8px;color:#718075;font-size:9px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Nomor aduan Anda</p>
-              <p style="margin:0;color:#0b1f17;font-family:Consolas,'Courier New',monospace;font-size:25px;font-weight:700;letter-spacing:.5px;">${escapeHtml(code)}</p>
-              <p style="margin:8px 0 0;color:#637168;font-size:12px;line-height:1.6;">Status awal <strong style="color:#17734f;">Diterima</strong></p>
+              <p style="margin:0 0 8px;color:#64748b;font-size:9px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Nomor aduan Anda</p>
+              <p style="margin:0;color:#0f172a;font-family:Consolas,'Courier New',monospace;font-size:25px;font-weight:700;letter-spacing:.5px;">${escapeHtml(code)}</p>
+              <p style="margin:8px 0 0;color:#475569;font-size:12px;line-height:1.6;">Status awal <strong style="color:#1d4ed8;">Diterima</strong></p>
             </td></tr>
           </table>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:22px;">
-            <tr><td style="padding:8px 0;border-bottom:1px solid #edf0eb;color:#718075;font-size:12px;">Jenis aduan</td><td align="right" style="padding:8px 0;border-bottom:1px solid #edf0eb;color:#26382d;font-size:12px;font-weight:700;">${escapeHtml(category)}</td></tr>
-            <tr><td style="padding:8px 0;border-bottom:1px solid #edf0eb;color:#718075;font-size:12px;">Lokasi</td><td align="right" style="padding:8px 0;border-bottom:1px solid #edf0eb;color:#26382d;font-size:12px;font-weight:700;">${escapeHtml(location)}</td></tr>
-            <tr><td style="padding:8px 0;color:#718075;font-size:12px;">Tanggal dikirim</td><td align="right" style="padding:8px 0;color:#26382d;font-size:12px;font-weight:700;">${escapeHtml(createdAt)}</td></tr>
+            <tr><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:12px;">Jenis aduan</td><td align="right" style="padding:8px 0;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:12px;font-weight:700;">${escapeHtml(category)}</td></tr>
+            <tr><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:12px;">Lokasi</td><td align="right" style="padding:8px 0;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:12px;font-weight:700;">${escapeHtml(location)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;font-size:12px;">Tanggal dikirim</td><td align="right" style="padding:8px 0;color:#0f172a;font-size:12px;font-weight:700;">${escapeHtml(createdAt)}</td></tr>
           </table>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px;border-left:3px solid #d8f36b;background:#f7f9f5;">
-            <tr><td style="padding:12px 14px;color:#536258;font-size:12px;line-height:1.7;">${escapeHtml(trackingInstruction)}</td></tr>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px;border-left:3px solid #2563eb;background:#f8fafc;">
+            <tr><td style="padding:12px 14px;color:#334155;font-size:12px;line-height:1.7;">${escapeHtml(trackingInstruction)}</td></tr>
           </table>
           ${trackingLink ? `<p style="margin:0 0 24px;">${trackingLink}</p>` : ''}
-          <p style="margin:0;color:#637168;font-size:12px;line-height:1.7;">Petugas akan meninjau laporan dan meneruskannya ke unit terkait. Simpan email ini sebagai bukti pengiriman.</p>
+          <p style="margin:0;color:#475569;font-size:12px;line-height:1.7;">Petugas akan meninjau laporan dan meneruskannya ke unit terkait. Simpan email ini sebagai bukti pengiriman.</p>
         </td></tr>
-        <tr><td style="padding:18px 36px;background:#f7f9f5;border-top:1px solid #edf0eb;">
-          <p style="margin:0;color:#718075;font-size:10px;line-height:1.7;">Email ini dikirim otomatis oleh <strong>Lacak Aduan</strong>. Mohon tidak membalas email ini. Identitas dan alamat email Anda tidak ditampilkan di papan publik.</p>
+        <tr><td style="padding:18px 36px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;color:#64748b;font-size:10px;line-height:1.7;">Email ini dikirim otomatis oleh <strong style="color:#334155;">Lacak Aduan</strong>. Mohon tidak membalas email ini. Identitas dan alamat email Anda tidak ditampilkan di papan publik.</p>
         </td></tr>
       </table>
-      <p style="margin:15px 0 0;color:#8b968e;font-size:10px;line-height:1.6;">Lacak Aduan &middot; Kelurahan Sukamaju</p>
+      <p style="margin:15px 0 0;color:#64748b;font-size:10px;line-height:1.6;">Lacak Aduan &middot; Kelurahan Sukamaju</p>
     </td></tr>
   </table>
 </body>

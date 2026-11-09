@@ -34,6 +34,15 @@ async function registerStaff(req, res) {
   }
 }
 
+async function deleteStaff(req, res) {
+  try {
+    const result = await authService.deleteStaffAccount({ email: req.body?.email }, req.user);
+    return res.json({ message: 'Akun petugas berhasil dihapus.', user: result });
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.message, code: error.code });
+  }
+}
+
 function me(req, res) {
   return res.json({ user: req.user });
 }
@@ -51,4 +60,4 @@ async function logout(req, res) {
   return res.status(204).end();
 }
 
-module.exports = { listStaffAccounts, login, logout, me, registerStaff };
+module.exports = { deleteStaff, listStaffAccounts, login, logout, me, registerStaff };

@@ -97,7 +97,9 @@ async function listStaffAccounts() {
     if (!email || seen.has(email)) continue;
     seen.add(email);
 
-    const authUser = users.find((user) => uidForEmail(user.email || '') === email) || null;
+    const authUser = users.find((user) => user.id === profile?.auth_user_id)
+      || users.find((user) => uidForEmail(user.email || '') === email)
+      || null;
     merged.push({
       id: profile.id || authUser?.id || email,
       email,
@@ -247,6 +249,79 @@ async function registerStaffAccount(input = {}, actor = null) {
   return { email, name, role: chosenRole, unit: chosenUnit, status: 'registered' };
 }
 
+async function deleteStaffAccount(input = {}, actor = null) {
+  if (!actor || actor.role !== 'admin') {
+    throw new AppError('Hanya admin yang dapat menghapus akun petugas.', { status: 403, code: 'AUTH_FORBIDDEN' });
+  }
+
+  const email = uidForEmail(input.email || '');
+  if (!isValidEmail(email)) {
+    throw new AppError('Email petugas tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (email === uidForEmail(actor.email)) {
+    throw new AppError('Akun admin yang sedang digunakan tidak dapat dihapus.', { status: 400, code: 'STAFF_SELF_DELETE' });
+  }
+
+  const admin = supabaseAdmin();
+  const { data: profile, error: profileReadError } = await admin
+    .from(STAFF_TABLE)
+    .select('*')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (profileReadError) {
+    throw new AppError('Gagal memeriksa profil petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
+  }
+
+  let users;
+  try {
+    users = await listAllAuthUsers(admin);
+  } catch {
+    throw new AppError('Gagal memeriksa akun petugas.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
+  }
+
+  const authUser = users.find((user) => uidForEmail(user.email || '') === email) || null;
+  if (!profile && !authUser) {
+    throw new AppError('Akun petugas tidak ditemukan.', { status: 404, code: 'STAFF_NOT_FOUND' });
+  }
+
+  const roles = [
+    profile?.role,
+    authUser?.app_metadata?.role,
+    authUser?.user_metadata?.role,
+  ];
+  if (roles.includes('admin')) {
+    throw new AppError('Akun administrator tidak dapat dihapus melalui daftar petugas.', { status: 403, code: 'STAFF_ADMIN_DELETE_FORBIDDEN' });
+  }
+
+  if (authUser && authUser.id === actor.uid) {
+    throw new AppError('Akun yang sedang digunakan tidak dapat dihapus.', { status: 400, code: 'STAFF_SELF_DELETE' });
+  }
+
+  if (authUser) {
+    const { error: authDeleteError } = await admin.auth.admin.deleteUser(authUser.id);
+    if (authDeleteError) {
+      throw new AppError('Gagal menghapus akun login petugas.', { status: 500, code: 'AUTH_USER_DELETE_FAILED' });
+    }
+  }
+
+  const { error: profileDeleteError } = await admin
+    .from(STAFF_TABLE)
+    .delete()
+    .eq('email', email);
+
+  if (profileDeleteError) {
+    throw new AppError(
+      authUser
+        ? 'Akun login telah dihapus, tetapi profil petugas belum terhapus. Muat ulang daftar dan ulangi penghapusan.'
+        : 'Gagal menghapus profil petugas.',
+      { status: 500, code: 'STAFF_PROFILE_DELETE_FAILED' },
+    );
+  }
+
+  return { email };
+}
+
 async function login(email, password) {
   const normalizedEmail = normalizeText(email).toLowerCase();
   const normalizedPassword = String(password || '');
@@ -320,6 +395,7 @@ async function logout(sessionCookie) {
 module.exports = {
   SESSION_COOKIE,
   cookieOptions,
+  deleteStaffAccount,
   listStaffAccounts,
   login,
   logout,

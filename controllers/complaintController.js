@@ -96,8 +96,8 @@ async function deleteStaffComplaints(req, res) {
   }
 
   try {
-    await complaintService.deleteStaffComplaints(req.body?.codes || []);
-    return res.status(204).end();
+    const deletedCodes = await complaintService.deleteStaffComplaints(req.body?.codes || [], req.user);
+    return res.json({ deletedCodes });
   } catch (error) {
     return res.status(error.status || 400).json({ message: error.message });
   }

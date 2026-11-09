@@ -1,7 +1,7 @@
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 const complaintController = require('../controllers/complaintController');
-const { asyncHandler, requireStaff } = require('../middleware/staffAuth');
+const { asyncHandler, requireAdmin, requireStaff } = require('../middleware/staffAuth');
 
 const router = express.Router();
 const publicWriteLimiter = rateLimit({
@@ -27,6 +27,6 @@ router.post('/complaints/:code/replies', publicWriteLimiter, asyncHandler(compla
 router.post('/complaints/:code/ratings', publicWriteLimiter, asyncHandler(complaintController.submitRating));
 router.get('/staff/complaints', requireStaff, asyncHandler(complaintController.listStaffComplaints));
 router.patch('/staff/complaints/:code', requireStaff, asyncHandler(complaintController.updateStaffComplaint));
-router.delete('/staff/complaints', requireStaff, asyncHandler(complaintController.deleteStaffComplaints));
+router.delete('/staff/complaints', requireAdmin, asyncHandler(complaintController.deleteStaffComplaints));
 
 module.exports = router;

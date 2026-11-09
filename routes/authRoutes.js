@@ -14,6 +14,7 @@ const loginLimiter = rateLimit({
 
 router.get('/staffs', requireAdmin, asyncHandler(authController.listStaffAccounts));
 router.post('/staffs/register', requireAdmin, loginLimiter, asyncHandler(authController.registerStaff));
+router.delete('/staffs', requireAdmin, asyncHandler(authController.deleteStaff));
 router.post('/login', loginLimiter, asyncHandler(authController.login));
 router.get('/me', requireStaff, authController.me);
 router.post('/logout', authController.logout);
