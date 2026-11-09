@@ -367,11 +367,11 @@
           <button class="btn btn-ghost" id="staff-logout" type="button">Keluar</button>
         </header>
 
-        <nav class="workspace-nav admin-only" id="admin-workspace-nav" aria-label="Menu admin" hidden>
-          <button type="button" class="is-active" data-admin-view="overview" aria-current="page">Ringkasan</button>
-          <button type="button" data-admin-view="cases">Aduan</button>
-          <button type="button" data-admin-view="staff">Petugas</button>
-          <button type="button" data-admin-view="activity">Aktivitas</button>
+        <nav class="workspace-nav" id="workspace-nav" aria-label="Menu ruang kerja" hidden>
+          <button type="button" class="is-active" data-workspace-view="overview" aria-current="page">Ringkasan</button>
+          <button type="button" data-workspace-view="cases">Aduan</button>
+          <button type="button" data-workspace-view="staff" id="workspace-staff-view" hidden>Petugas</button>
+          <button type="button" data-workspace-view="activity">Aktivitas</button>
         </nav>
 
         <div class="kpi-grid" data-admin-section="overview" aria-label="Ringkasan kinerja">

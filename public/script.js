@@ -22,7 +22,7 @@ const CATS = [
   'Layanan administrasi',
   'Lainnya',
 ];
-const ADMIN_VIEW_TITLES = {
+const WORKSPACE_VIEW_TITLES = {
   overview: 'Pusat kendali aduan.',
   cases: 'Kelola aduan.',
   staff: 'Kelola petugas.',
@@ -323,7 +323,7 @@ let staffCaseRequest = 0;
 let selectedTicketCode = '';
 let selectedBulkTicketCodes = new Set();
 let deleteTargetCodes = [];
-let activeAdminView = 'overview';
+let activeWorkspaceView = 'overview';
 
 function normalizeTicket(input) {
   const ticket = { ...input };
@@ -757,39 +757,42 @@ function setStaffView() {
   $('kpi-units').hidden = !isAdmin;
   $('staff-admin-panel').hidden = !isAdmin;
   $('bulk-actions').hidden = !isAdmin;
-  $('admin-workspace-nav').hidden = !isAdmin;
+  $('workspace-nav').hidden = !user;
+  $('workspace-nav').setAttribute('aria-label', isAdmin ? 'Menu admin' : 'Menu petugas');
+  $('workspace-staff-view').hidden = !isAdmin;
   const deleteTicket = $('delete-ticket');
   if (deleteTicket) deleteTicket.hidden = !isAdmin;
 
   if (!user) return;
 
   $('role-chip').textContent = isAdmin ? 'Admin' : 'Petugas';
-  $('workspace-title').textContent = isAdmin ? 'Pusat kendali aduan.' : 'Ruang kerja petugas.';
   $('staff-welcome').textContent = `${user.name || 'Petugas'} · ${isAdmin ? 'Administrator' : user.unit || 'Unit belum ditetapkan'}`;
 
-  if (isAdmin) {
-    setAdminView('overview');
-  } else {
-    $$('[data-admin-section]').forEach((section) => {
-      section.hidden = section.dataset.adminSection === 'staff';
-    });
-  }
+  setWorkspaceView('overview');
 
   renderDashboard();
   if (isAdmin) renderStaffDirectory();
 }
 
-function setAdminView(view) {
-  const user = currentSession();
-  if (user?.role !== 'admin') return;
+function workspaceViewTitle(view, user = currentSession()) {
+  if (view === 'overview' && user?.role !== 'admin') return 'Ruang kerja petugas.';
+  return WORKSPACE_VIEW_TITLES[view];
+}
 
-  activeAdminView = Object.hasOwn(ADMIN_VIEW_TITLES, view) ? view : 'overview';
+function setWorkspaceView(view) {
+  const user = currentSession();
+  if (!user) return;
+
+  const allowedViews = user.role === 'admin'
+    ? Object.keys(WORKSPACE_VIEW_TITLES)
+    : ['overview', 'cases', 'activity'];
+  activeWorkspaceView = allowedViews.includes(view) ? view : 'overview';
   $$('[data-admin-section]').forEach((section) => {
-    section.hidden = section.dataset.adminSection !== activeAdminView;
+    section.hidden = section.dataset.adminSection !== activeWorkspaceView;
   });
-  $('workspace-title').textContent = ADMIN_VIEW_TITLES[activeAdminView];
-  $$('[data-admin-view]').forEach((button) => {
-    const active = button.dataset.adminView === activeAdminView;
+  $('workspace-title').textContent = workspaceViewTitle(activeWorkspaceView, user);
+  $$('[data-workspace-view]').forEach((button) => {
+    const active = button.dataset.workspaceView === activeWorkspaceView;
     button.classList.toggle('is-active', active);
     if (active) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
@@ -829,10 +832,8 @@ function renderDashboard() {
   renderStaffTable(cases);
   renderActivity(cases);
 
-  if (isAdmin) {
-    const title = $('workspace-title');
-    if (title) title.textContent = ADMIN_VIEW_TITLES[activeAdminView];
-  }
+  const title = $('workspace-title');
+  if (title) title.textContent = workspaceViewTitle(activeWorkspaceView, user);
 }
 
 function filteredStaffCases(cases) {
@@ -2228,9 +2229,9 @@ function bindEvents() {
   $('f-register-staff')?.addEventListener('submit', submitStaffRegistration);
   $('f-edit-staff')?.addEventListener('submit', submitStaffEdit);
   $('staff-logout')?.addEventListener('click', logout);
-  $('admin-workspace-nav')?.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-admin-view]');
-    if (button) setAdminView(button.dataset.adminView);
+  $('workspace-nav')?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-workspace-view]');
+    if (button) setWorkspaceView(button.dataset.workspaceView);
   });
   $('close-staff-edit')?.addEventListener('click', closeStaffEdit);
   $('cancel-staff-edit')?.addEventListener('click', closeStaffEdit);
