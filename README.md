@@ -40,16 +40,13 @@ PORT=3000
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SMTP_HOST=smtp-relay.brevo.com
-SMTP_PORT=587
-SMTP_USER=your-brevo-smtp-login
-SMTP_PASS=your-brevo-smtp-key
+BREVO_API_KEY=your-brevo-api-key
 SMTP_FROM_EMAIL=noreply@mail.badrussholeh.my.id
 SMTP_FROM_NAME=Lacak Aduan
 PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Email pengonfirmasi nomor aduan dikirim melalui SMTP relay Brevo (`smtp-relay.brevo.com`) menggunakan port 587 dan STARTTLS, dengan template HTML responsif serta versi teks alternatif. Buat atau ambil **SMTP login** dan **SMTP key** di pengaturan SMTP Brevo; SMTP key berbeda dari password akun Brevo dan API key. Verifikasi domain pengirim, lalu gunakan email pengirim yang terdaftar di `SMTP_FROM_EMAIL`. Simpan `SMTP_PASS` hanya di environment lokal atau platform deployment, jangan di frontend maupun repository. Saat deploy ke Vercel, atur variabel SMTP tersebut di **Project Settings → Environment Variables** dan isi `PUBLIC_APP_URL` dengan URL HTTPS aplikasi.
+Email pengonfirmasi nomor aduan dikirim melalui Brevo transactional email API lewat HTTPS (kompatibel dengan Vercel Functions), dengan template HTML responsif serta versi teks alternatif. Buat API key di Brevo dan verifikasi domain pengirim, lalu gunakan email pengirim yang terdaftar di `SMTP_FROM_EMAIL`. Simpan `BREVO_API_KEY` hanya di environment lokal atau platform deployment, jangan di frontend maupun repository. Di Vercel, atur variabel tersebut di **Project Settings → Environment Variables**; `PUBLIC_APP_URL` boleh dikosongkan karena URL deployment Vercel digunakan otomatis.
 
 Email konfirmasi wajib berhasil dikirim agar pengajuan dianggap berhasil. Kredensial atau konfigurasi yang belum tersedia akan menolak pengajuan sebelum menyimpan aduan. Jika Brevo mengalami gangguan setelah aduan tersimpan, aplikasi menampilkan nomor aduan dan tombol **Kirim ulang email**; pengiriman ulang dibatasi 5 kali per jam.
 
@@ -95,7 +92,7 @@ Buka `http://localhost:3000`.
 1. Push repository ke GitHub.
 2. Di Vercel pilih Add New → Project.
 3. Pilih branch `main` dan framework preset `Other`.
-4. Tambahkan environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `PUBLIC_APP_URL`, dan `NODE_ENV=production`.
+4. Tambahkan environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `BREVO_API_KEY`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, dan `NODE_ENV=production`. `PUBLIC_APP_URL` opsional di Vercel.
 5. Deploy.
 
 ## API utama
