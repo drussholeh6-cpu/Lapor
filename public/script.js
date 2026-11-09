@@ -10,6 +10,7 @@ const SESSION_FLAG = 'la-has-session';
 const THEME_KEY = 'la-theme';
 const SEEN_KEY = 'la-seen';
 const LOCATION_KEY = 'la-location';
+let captchaActivated = false;
 
 const CATS = [
   'Jalan rusak',
@@ -1225,17 +1226,27 @@ function resetCompose() {
     form.reset();
     form.hidden = false;
   }
+  closeCaptchaModal(false);
   const made = $('made');
   if (made) made.hidden = true;
   if ($('n-lat')) $('n-lat').value = '';
   if ($('n-lng')) $('n-lng').value = '';
   if ($('n-err')) $('n-err').textContent = '';
   if ($('n-file-label')) $('n-file-label').textContent = 'JPG/PNG, otomatis dikompres';
-  generateCaptchaChallenge();
   if (pickerMarker) {
     pickerMarker.remove();
     pickerMarker = null;
   }
+}
+
+function closeCaptchaModal(restoreFocus = true) {
+  $('captcha-modal').hidden = true;
+  captchaActivated = false;
+  $('n-captcha').disabled = true;
+  $('n-captcha').value = '';
+  $('n-captcha-question').textContent = '';
+  $('captcha-modal-error').textContent = '';
+  if (restoreFocus) $('submit-complaint')?.focus();
 }
 
 function renderMade(ticket) {
@@ -1292,12 +1303,24 @@ async function submitNewTicket(event) {
     return;
   }
 
-  if (!validateCaptchaChallenge()) {
-    error.textContent = 'Jawaban verifikasi keamanan salah. Silakan coba lagi.';
+  const captchaInput = $('n-captcha');
+  if (!captchaActivated) {
+    captchaActivated = true;
     generateCaptchaChallenge();
-    $('n-captcha').focus();
+    captchaInput.disabled = false;
+    $('captcha-modal-error').textContent = '';
+    $('captcha-modal').hidden = false;
+    window.requestAnimationFrame(() => captchaInput.focus());
     return;
   }
+
+  if (!validateCaptchaChallenge()) {
+    $('captcha-modal-error').textContent = 'Jawaban belum tepat. Coba soal yang baru.';
+    generateCaptchaChallenge();
+    captchaInput.focus();
+    return;
+  }
+  closeCaptchaModal(false);
 
   let evidence = null;
   try {
@@ -1822,6 +1845,11 @@ function bindEvents() {
   });
 
   $('f-new')?.addEventListener('submit', submitNewTicket);
+  $('confirm-captcha')?.addEventListener('click', () => $('f-new')?.requestSubmit());
+  $('cancel-captcha')?.addEventListener('click', () => closeCaptchaModal());
+  $('captcha-modal')?.addEventListener('click', (event) => {
+    if (event.target.dataset.closeCaptchaModal === 'true') closeCaptchaModal();
+  });
   $('f-login')?.addEventListener('submit', submitLogin);
   $('f-register-staff')?.addEventListener('submit', submitStaffRegistration);
   $('staff-logout')?.addEventListener('click', logout);
@@ -1902,7 +1930,6 @@ function bindEvents() {
     else submitResidentReply(event);
   });
 
-  generateCaptchaChallenge();
   $('locate-me')?.addEventListener('click', locateUser);
   $('mark-read')?.addEventListener('click', () => {
     localStorage.setItem(SEEN_KEY, String(Date.now()));
@@ -1911,6 +1938,7 @@ function bindEvents() {
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (!$('captcha-modal').hidden) closeCaptchaModal();
       closeDeleteModal();
       closeMenu();
     }
