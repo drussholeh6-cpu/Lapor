@@ -970,6 +970,7 @@ async function renderCaseEditor() {
     : '';
   $('s-st').innerHTML = `${options}<option value="-1">Tolak aduan</option>`;
   $('s-st').required = true;
+  updateStaffNoteField();
 
   const help = $('case-help');
   if (help) {
@@ -1767,8 +1768,8 @@ async function submitStaffAction(event) {
   const note = $('s-note').value.trim();
   const visibility = $('s-visibility').value;
 
-  if (!['public', 'internal'].includes(visibility) || note.length < 10) {
-    message.textContent = 'Catatan minimal 10 karakter dan visibilitas harus dipilih.';
+  if (!['public', 'internal'].includes(visibility)) {
+    message.textContent = 'Pilih visibilitas catatan.';
     return;
   }
   if (operation === 'request-info' && visibility !== 'public') {
@@ -1779,6 +1780,19 @@ async function submitStaffAction(event) {
   const statusValue = operation === 'update' ? Number($('s-st').value) : null;
   if (operation === 'update' && !Number.isInteger(statusValue)) {
     message.textContent = 'Pilih status tindak lanjut.';
+    return;
+  }
+  if (note.length > 2000) {
+    message.textContent = 'Catatan tindak lanjut maksimal 2.000 karakter.';
+    return;
+  }
+  if (!note) {
+    message.textContent = operation === 'request-info'
+      ? 'Tuliskan informasi yang perlu disampaikan kepada warga.'
+      : statusValue === -1
+        ? 'Alasan penolakan wajib diisi.'
+        : 'Catatan tindak lanjut wajib diisi.';
+    $('s-note').focus();
     return;
   }
 
@@ -1831,6 +1845,24 @@ async function submitStaffAction(event) {
   } finally {
     setLoading(submitter, false);
   }
+}
+
+function updateStaffNoteField(operation = 'update') {
+  const rejected = operation === 'update' && $('s-st')?.value === '-1';
+  const requestingInfo = operation === 'request-info';
+  const label = $('s-note-label');
+  const note = $('s-note');
+  if (!label || !note) return;
+
+  label.textContent = rejected
+    ? 'Alasan penolakan'
+    : requestingInfo ? 'Informasi yang diminta' : 'Catatan tindak lanjut';
+  note.required = true;
+  note.placeholder = rejected
+    ? 'Tuliskan alasan aduan ditolak (wajib diisi).'
+    : requestingInfo
+      ? 'Tuliskan informasi yang perlu disampaikan kepada warga.'
+    : 'Jelaskan tindakan atau keputusan tindak lanjut.';
 }
 
 function openDeleteModal() {
@@ -2214,6 +2246,10 @@ function bindEvents() {
 
   $('f-staff')?.addEventListener('submit', submitStaffAction);
   $('s-t')?.addEventListener('change', renderCaseEditor);
+  $('s-st')?.addEventListener('change', updateStaffNoteField);
+  $$('button[name="operation"][value="request-info"]').forEach((button) => {
+    button.addEventListener('click', () => updateStaffNoteField('request-info'));
+  });
   $('delete-ticket')?.addEventListener('click', openDeleteModal);
   $('delete-selected')?.addEventListener('click', () => {
     const codes = [...selectedBulkTicketCodes];

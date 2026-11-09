@@ -136,6 +136,22 @@ async function updateStaffComplaint(code, body, user) {
     throw new AppError('Nomor aduan tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
+  const operation = body.operation === 'request-info' ? 'request-info' : 'update';
+  const note = String(body.note || '').trim();
+  if (note.length > 2000) {
+    throw new AppError('Catatan tindak lanjut maksimal 2.000 karakter.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (!note) {
+    throw new AppError(
+      operation === 'request-info'
+        ? 'Informasi yang diminta wajib diisi.'
+        : Number(body.status) === -1
+          ? 'Alasan penolakan wajib diisi.'
+          : 'Catatan tindak lanjut wajib diisi.',
+      { status: 400, code: 'VALIDATION_ERROR' },
+    );
+  }
+
   if (body.unit && !VALID_UNITS.has(body.unit)) {
     throw new AppError('Unit penanggung jawab tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
   }

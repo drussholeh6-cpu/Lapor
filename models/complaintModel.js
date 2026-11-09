@@ -190,7 +190,7 @@ async function applyStaffAction(code, input, user) {
   const note = String(input.note || '').trim();
   const visibility = input.visibility;
 
-  if (!hasValidLength(note, 10, 2000) || !VALID_VISIBILITY.includes(visibility)) return null;
+  if (!note || note.length > 2000 || !VALID_VISIBILITY.includes(visibility)) return null;
   if (operation === 'request-info' && visibility !== 'public') return null;
 
   if (VALID_PRIORITIES.includes(input.priority) && input.priority !== existing.priority) {
@@ -222,7 +222,6 @@ async function applyStaffAction(code, input, user) {
   const currentStatus = complaint.log[complaint.log.length - 1]?.s ?? 0;
   const nextStatus = Number(input.status);
   if (!Number.isInteger(nextStatus) || (nextStatus !== -1 && nextStatus !== currentStatus + 1)) return null;
-
   if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
     complaint.attachments.push({
       evidence: input.evidence,
