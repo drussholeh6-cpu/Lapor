@@ -21,7 +21,41 @@ function publicComplaint(complaint) {
     infoRequestedAt: complaint.waitingForInfo ? complaint.infoRequestedAt : null,
     infoResponse: complaint.infoResponse || null,
     rating: complaint.rating || null,
-    log: (complaint.log || []).filter((entry) => entry.visibility !== 'internal'),
+    log: (complaint.log || [])
+      .filter((entry) => entry.visibility !== 'internal')
+      .map((item) => {
+        const entry = { ...item };
+        delete entry.evidence;
+        return entry;
+      }),
+  };
+}
+
+function publicComplaintDetail(complaint) {
+  if (!complaint) return null;
+
+  const attachments = [];
+  const seenEvidence = new Set();
+  const addAttachment = (evidence, source, at) => {
+    if (typeof evidence !== 'string' || seenEvidence.has(evidence)) return;
+    seenEvidence.add(evidence);
+    attachments.push({ evidence, source, at });
+  };
+  if (typeof complaint.evidence === 'string') {
+    addAttachment(complaint.evidence, 'Bukti aduan', complaint.at);
+  }
+  (complaint.attachments || []).forEach((attachment) => {
+    if (attachment.visibility === 'internal' || typeof attachment.evidence !== 'string') return;
+    addAttachment(attachment.evidence, attachment.source || 'Bukti penanganan', attachment.at);
+  });
+  (complaint.log || []).forEach((entry) => {
+    if (entry.visibility === 'internal' || typeof entry.evidence !== 'string') return;
+    addAttachment(entry.evidence, `Petugas · ${entry.by || 'Unit penanganan'}`, entry.at);
+  });
+
+  return {
+    ...publicComplaint(complaint),
+    attachments,
   };
 }
 
@@ -46,6 +80,7 @@ function cloneComplaintData(complaint) {
     ...complaint,
     log: Array.isArray(complaint.log) ? [...complaint.log] : [],
     audit: Array.isArray(complaint.audit) ? [...complaint.audit] : [],
+    attachments: Array.isArray(complaint.attachments) ? [...complaint.attachments] : [],
   };
 }
 
@@ -107,6 +142,14 @@ async function createComplaint(input) {
     unit: input.unit,
     coordinates: input.coordinates || null,
     evidence: input.evidence || null,
+    attachments: input.evidence
+      ? [{
+        evidence: input.evidence,
+        source: 'Pelapor',
+        at: now,
+        visibility: 'public',
+      }]
+      : [],
     waitingForInfo: false,
     infoPrompt: '',
     infoRequestedAt: null,
@@ -164,6 +207,14 @@ async function applyStaffAction(code, input, user) {
     complaint.waitingForInfo = true;
     complaint.infoPrompt = note;
     complaint.infoRequestedAt = now;
+    if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
+      complaint.attachments.push({
+        evidence: input.evidence,
+        source: `${user.role === 'admin' ? 'Admin' : 'Petugas'} · ${user.name || 'Petugas'}`,
+        at: now,
+        visibility,
+      });
+    }
     addAudit(complaint, 'request-info', user.name, 'Petugas meminta informasi tambahan dari warga.');
     return saveComplaintUpdate(code, complaint);
   }
@@ -172,12 +223,16 @@ async function applyStaffAction(code, input, user) {
   const nextStatus = Number(input.status);
   if (!Number.isInteger(nextStatus) || (nextStatus !== -1 && nextStatus !== currentStatus + 1)) return null;
 
+  if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
+    complaint.attachments.push({
+      evidence: input.evidence,
+      source: `${user.role === 'admin' ? 'Admin' : 'Petugas'} · ${user.name || 'Petugas'}`,
+      at: now,
+      visibility,
+    });
+  }
   complaint.log.push({ s: nextStatus, at: now, by: user.name, note, visibility });
   complaint.waitingForInfo = false;
-
-  if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
-    complaint.evidence = input.evidence;
-  }
 
   const statusName = nextStatus === -1 ? 'Ditolak' : STATUS_LABELS[nextStatus];
   addAudit(complaint, 'status', user.name, `Status diubah menjadi ${statusName}.`);
@@ -229,4 +284,5 @@ module.exports = {
   findComplaintByCode,
   listComplaints,
   publicComplaint,
+  publicComplaintDetail,
 };

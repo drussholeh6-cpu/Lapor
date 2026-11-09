@@ -3,6 +3,14 @@ const { AppError } = require('../core/errors');
 const { isValidEmail, normalizeText } = require('../utils/validators');
 
 const STAFF_TABLE = 'staff_profiles';
+const STAFF_UNITS = new Set([
+  'Seksi Pemeliharaan Jalan',
+  'Dinas Kebersihan',
+  'Seksi Sarana Umum',
+  'Tim Drainase',
+  'Bagian Pelayanan Kelurahan',
+  'Koordinasi Lintas Instansi',
+]);
 const SESSION_COOKIE = process.env.NODE_ENV === 'production'
   ? '__Host-la-session'
   : 'la-session';
@@ -156,6 +164,9 @@ async function registerStaffAccount(input = {}, actor = null) {
 
   const chosenRole = ['admin', 'petugas'].includes(role) ? role : 'petugas';
   const chosenUnit = chosenRole === 'admin' ? '' : normalizeText(unit || '').replace(/\s+/g, ' ');
+  if (chosenRole === 'petugas' && !STAFF_UNITS.has(chosenUnit)) {
+    throw new AppError('Unit kerja petugas tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
 
   const admin = supabaseAdmin();
   let users;
@@ -247,6 +258,136 @@ async function registerStaffAccount(input = {}, actor = null) {
   }
 
   return { email, name, role: chosenRole, unit: chosenUnit, status: 'registered' };
+}
+
+async function updateStaffAccount(input = {}, actor = null) {
+  if (!actor || actor.role !== 'admin') {
+    throw new AppError('Hanya admin yang dapat mengubah akun petugas.', { status: 403, code: 'AUTH_FORBIDDEN' });
+  }
+
+  const originalEmail = uidForEmail(input.originalEmail || '');
+  const { name, email, unit } = normalizeStaffPayload({ ...input, role: 'petugas' }, actor);
+  const password = input.password === undefined || input.password === null
+    ? ''
+    : String(input.password);
+
+  if (!isValidEmail(originalEmail) || !isValidEmail(email) || email.length > 160) {
+    throw new AppError('Email petugas tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (!name || name.length < 2 || name.length > 80) {
+    throw new AppError('Nama petugas harus berisi 2 sampai 80 karakter.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (!STAFF_UNITS.has(unit)) {
+    throw new AppError('Unit kerja petugas harus diisi.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (password && (password.length < 6 || password.length > 128)) {
+    throw new AppError('Kata sandi baru harus berisi 6 sampai 128 karakter.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (originalEmail === uidForEmail(actor.email)) {
+    throw new AppError('Akun administrator yang sedang digunakan tidak dapat diubah dari daftar petugas.', { status: 403, code: 'STAFF_ADMIN_EDIT_FORBIDDEN' });
+  }
+
+  const admin = supabaseAdmin();
+  const { data: profile, error: profileReadError } = await admin
+    .from(STAFF_TABLE)
+    .select('*')
+    .eq('email', originalEmail)
+    .maybeSingle();
+
+  if (profileReadError) {
+    throw new AppError('Gagal memeriksa profil petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
+  }
+
+  let users;
+  try {
+    users = await listAllAuthUsers(admin);
+  } catch {
+    throw new AppError('Gagal memeriksa akun petugas.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
+  }
+
+  const authUser = users.find((user) => user.id === profile?.auth_user_id)
+    || users.find((user) => uidForEmail(user.email || '') === originalEmail)
+    || null;
+  if (!profile && !authUser) {
+    throw new AppError('Akun petugas tidak ditemukan.', { status: 404, code: 'STAFF_NOT_FOUND' });
+  }
+
+  const roles = [profile?.role, authUser?.app_metadata?.role, authUser?.user_metadata?.role];
+  if (roles.includes('admin')) {
+    throw new AppError('Akun administrator tidak dapat diubah melalui daftar petugas.', { status: 403, code: 'STAFF_ADMIN_EDIT_FORBIDDEN' });
+  }
+  if (authUser && authUser.id === actor.uid) {
+    throw new AppError('Akun yang sedang digunakan tidak dapat diubah di sini.', { status: 403, code: 'STAFF_SELF_EDIT_FORBIDDEN' });
+  }
+  if (password && !authUser) {
+    throw new AppError('Petugas ini belum memiliki akun login. Buat akunnya terlebih dahulu sebelum menetapkan kata sandi.', { status: 409, code: 'STAFF_LOGIN_NOT_REGISTERED' });
+  }
+
+  const duplicateUser = users.find((user) => (
+    uidForEmail(user.email || '') === email && user.id !== authUser?.id
+  ));
+  const { data: duplicateProfile, error: duplicateProfileError } = await admin
+    .from(STAFF_TABLE)
+    .select('email')
+    .eq('email', email)
+    .maybeSingle();
+  if (duplicateProfileError) {
+    throw new AppError('Gagal memeriksa email petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
+  }
+  if (duplicateUser || (duplicateProfile && email !== originalEmail)) {
+    throw new AppError('Email tersebut sudah digunakan akun lain.', { status: 409, code: 'STAFF_EMAIL_CONFLICT' });
+  }
+
+  if (authUser) {
+    const userMetadata = {
+      ...(authUser.user_metadata || {}),
+      name,
+      staffName: name,
+      role: 'petugas',
+      unit,
+    };
+    const appMetadata = {
+      ...(authUser.app_metadata || {}),
+      role: 'petugas',
+      unit,
+      staffName: name,
+    };
+    const updates = {
+      email,
+      email_confirm: true,
+      user_metadata: userMetadata,
+      app_metadata: appMetadata,
+    };
+    if (password) updates.password = password;
+
+    const { error: authUpdateError } = await admin.auth.admin.updateUserById(authUser.id, updates);
+    if (authUpdateError) {
+      throw new AppError('Gagal memperbarui akun login petugas.', { status: 500, code: 'AUTH_USER_UPDATE_FAILED' });
+    }
+  }
+
+  const profileUpdates = {
+    email,
+    name,
+    role: 'petugas',
+    unit,
+    status: authUser ? 'registered' : 'pending',
+    auth_user_id: authUser?.id || profile?.auth_user_id || null,
+  };
+  const profileWrite = profile
+    ? admin.from(STAFF_TABLE).update(profileUpdates).eq('email', originalEmail)
+    : admin.from(STAFF_TABLE).upsert(profileUpdates, { onConflict: 'email' });
+  const { error: profileWriteError } = await profileWrite;
+  if (profileWriteError) {
+    throw new AppError(
+      authUser
+        ? 'Akun login petugas sudah diperbarui, tetapi profil belum tersimpan. Periksa kembali daftar petugas sebelum mengulangi perubahan.'
+        : 'Gagal menyimpan perubahan profil petugas.',
+      { status: 500, code: 'STAFF_PROFILE_WRITE_FAILED' },
+    );
+  }
+
+  return { email, name, role: 'petugas', unit, status: authUser ? 'registered' : 'pending' };
 }
 
 async function deleteStaffAccount(input = {}, actor = null) {
@@ -400,4 +541,5 @@ module.exports = {
   login,
   logout,
   registerStaffAccount,
+  updateStaffAccount,
 };

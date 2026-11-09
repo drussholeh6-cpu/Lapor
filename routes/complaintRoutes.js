@@ -26,6 +26,7 @@ router.post('/complaints/:code/confirmation', receiptResendLimiter, asyncHandler
 router.post('/complaints/:code/replies', publicWriteLimiter, asyncHandler(complaintController.submitResidentReply));
 router.post('/complaints/:code/ratings', publicWriteLimiter, asyncHandler(complaintController.submitRating));
 router.get('/staff/complaints', requireStaff, asyncHandler(complaintController.listStaffComplaints));
+router.get('/staff/complaints/:code', requireStaff, asyncHandler(complaintController.getStaffComplaintByCode));
 router.patch('/staff/complaints/:code', requireStaff, asyncHandler(complaintController.updateStaffComplaint));
 router.delete('/staff/complaints', requireAdmin, asyncHandler(complaintController.deleteStaffComplaints));
 

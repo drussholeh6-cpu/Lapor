@@ -22,6 +22,12 @@ const CATS = [
   'Layanan administrasi',
   'Lainnya',
 ];
+const ADMIN_VIEW_TITLES = {
+  overview: 'Pusat kendali aduan.',
+  cases: 'Kelola aduan.',
+  staff: 'Kelola petugas.',
+  activity: 'Aktivitas terbaru.',
+};
 
 const CAT_CONFIG = {
   'Jalan rusak': { unit: 'Seksi Pemeliharaan Jalan', days: 7 },
@@ -312,9 +318,12 @@ async function apiRequest(path, options = {}) {
 /* ─── Data state ─── */
 let tickets = [];
 let staffTickets = [];
+let staffCaseDetails = new Map();
+let staffCaseRequest = 0;
 let selectedTicketCode = '';
 let selectedBulkTicketCodes = new Set();
 let deleteTargetCodes = [];
+let activeAdminView = 'overview';
 
 function normalizeTicket(input) {
   const ticket = { ...input };
@@ -333,6 +342,21 @@ function normalizeTicket(input) {
   ticket.waitingForInfo = Boolean(ticket.waitingForInfo);
   ticket.audit = Array.isArray(ticket.audit) ? ticket.audit : [];
   ticket.evidence = ticket.evidence || null;
+  ticket.attachments = Array.isArray(ticket.attachments) ? [...ticket.attachments] : [];
+  const knownEvidence = new Set(ticket.attachments.map((attachment) => attachment.evidence));
+  if (ticket.evidence && !knownEvidence.has(ticket.evidence)) {
+    ticket.attachments.push({ evidence: ticket.evidence, source: 'Pelapor', at: ticket.at });
+    knownEvidence.add(ticket.evidence);
+  }
+  ticket.log.forEach((entry) => {
+    if (!entry.evidence || knownEvidence.has(entry.evidence)) return;
+    ticket.attachments.push({
+      evidence: entry.evidence,
+      source: `Petugas · ${entry.by || 'Unit penanganan'}`,
+      at: entry.at,
+    });
+    knownEvidence.add(entry.evidence);
+  });
   ticket.email = typeof ticket.email === 'string' ? ticket.email : '';
   ticket.name = typeof ticket.name === 'string' ? ticket.name : '';
 
@@ -579,9 +603,18 @@ function evidenceUrl(value) {
 }
 
 function evidenceMarkup(value) {
-  const url = evidenceUrl(value);
-  if (!url) return '';
-  return `<a class="evidence-link" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="Bukti aduan" loading="lazy"></a>`;
+  const attachments = Array.isArray(value) ? value : [{ evidence: value, source: 'Bukti aduan' }];
+  const items = attachments
+    .map((attachment) => {
+      const url = evidenceUrl(attachment?.evidence);
+      if (!url) return '';
+      const source = escapeHtml(attachment.source || 'Bukti aduan');
+      const date = attachment.at ? `<small>${formatDate(attachment.at)}</small>` : '';
+      return `<figure class="evidence-item"><a class="evidence-link" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="${source}" loading="lazy"></a><figcaption><span>${source}</span>${date}</figcaption></figure>`;
+    })
+    .filter(Boolean)
+    .join('');
+  return items ? `<div class="evidence-gallery">${items}</div>` : '';
 }
 
 function slip(ticket) {
@@ -612,7 +645,7 @@ function slip(ticket) {
     ? `<a class="map-link" href="https://www.openstreetmap.org/?mlat=${ticket.coordinates[0]}&mlon=${ticket.coordinates[1]}#map=17/${ticket.coordinates[0]}/${ticket.coordinates[1]}" target="_blank" rel="noopener">Lihat titik perkiraan di peta</a>`
     : '';
 
-  const evidence = evidenceMarkup(ticket.evidence);
+  const evidence = evidenceMarkup(ticket.attachments);
 
   return `<article class="slip"><div class="slip-h"><div><div class="code">${escapeHtml(ticket.code)}</div><p class="meta">${escapeHtml(ticket.cat)}, ${escapeHtml(ticket.loc)}<br>Masuk ${formatDate(ticket.at)}<br>${location}</p></div><div class="stamp ${statusClass(ticket)}">${escapeHtml(statusLabel(ticket))}</div></div><div class="slip-b"><p class="issue">“${escapeHtml(ticket.text)}”</p><div class="case-tags"><span class="priority-tag ${priorityClass(ticket.priority)}">Prioritas ${priorityLabel(ticket.priority)}</span><span class="unit-tag">${escapeHtml(ticket.unit)}</span></div>${evidence ? `<div class="evidence-box">${evidence}</div>` : ''}<div class="age"><div class="${late ? 'late-text' : ''}">${ageText}</div><div class="bar ${late ? 'over' : ''}" role="img" aria-label="${progress} persen dari target waktu"><i style="width:${progress}%"></i></div></div>${waiting}<ol class="tl">${timeline(ticket)}${rejection}</ol>${isClosed(ticket) ? ratingMarkup(ticket) : ''}</div></article>`;
 }
@@ -690,6 +723,8 @@ function clearSession() {
     /* Abaikan penyimpanan yang tidak tersedia. */
   }
   staffTickets = [];
+  staffCaseDetails.clear();
+  staffCaseRequest += 1;
   selectedTicketCode = '';
   selectedBulkTicketCodes = new Set();
 }
@@ -722,6 +757,7 @@ function setStaffView() {
   $('kpi-units').hidden = !isAdmin;
   $('staff-admin-panel').hidden = !isAdmin;
   $('bulk-actions').hidden = !isAdmin;
+  $('admin-workspace-nav').hidden = !isAdmin;
   const deleteTicket = $('delete-ticket');
   if (deleteTicket) deleteTicket.hidden = !isAdmin;
 
@@ -731,8 +767,33 @@ function setStaffView() {
   $('workspace-title').textContent = isAdmin ? 'Pusat kendali aduan.' : 'Ruang kerja petugas.';
   $('staff-welcome').textContent = `${user.name || 'Petugas'} · ${isAdmin ? 'Administrator' : user.unit || 'Unit belum ditetapkan'}`;
 
+  if (isAdmin) {
+    setAdminView('overview');
+  } else {
+    $$('[data-admin-section]').forEach((section) => {
+      section.hidden = section.dataset.adminSection === 'staff';
+    });
+  }
+
   renderDashboard();
   if (isAdmin) renderStaffDirectory();
+}
+
+function setAdminView(view) {
+  const user = currentSession();
+  if (user?.role !== 'admin') return;
+
+  activeAdminView = Object.hasOwn(ADMIN_VIEW_TITLES, view) ? view : 'overview';
+  $$('[data-admin-section]').forEach((section) => {
+    section.hidden = section.dataset.adminSection !== activeAdminView;
+  });
+  $('workspace-title').textContent = ADMIN_VIEW_TITLES[activeAdminView];
+  $$('[data-admin-view]').forEach((button) => {
+    const active = button.dataset.adminView === activeAdminView;
+    button.classList.toggle('is-active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
 }
 
 /* ─── Dashboard ─── */
@@ -770,7 +831,7 @@ function renderDashboard() {
 
   if (isAdmin) {
     const title = $('workspace-title');
-    if (title) title.textContent = 'Pusat kendali aduan.';
+    if (title) title.textContent = ADMIN_VIEW_TITLES[activeAdminView];
   }
 }
 
@@ -836,6 +897,7 @@ function fillStaffSelect(cases = accessibleTickets()) {
 
   const ordered = [...cases].sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
   if (!ordered.length) {
+    staffCaseRequest += 1;
     select.innerHTML = '<option value="">Tidak ada aduan untuk unit ini</option>';
     selectedTicketCode = '';
     $('f-staff').hidden = true;
@@ -862,14 +924,37 @@ function fillStaffSelect(cases = accessibleTickets()) {
   renderCaseEditor();
 }
 
-function renderCaseEditor() {
+async function renderCaseEditor() {
   const user = currentSession();
   const select = $('s-t');
   const detail = $('case-detail');
   if (!select || !detail) return;
 
-  const ticket = staffTickets.find((item) => item.code === select.value);
-  if (!ticket) return;
+  const code = select.value;
+  const requestId = ++staffCaseRequest;
+  let ticket = staffCaseDetails.get(code);
+  if (!ticket) {
+    const summary = staffTickets.find((item) => item.code === code);
+    if (!summary) return;
+    $('f-staff').hidden = true;
+    detail.hidden = false;
+    detail.innerHTML = '<p class="hint">Memuat detail aduan dan bukti foto…</p>';
+    try {
+      const payload = await apiRequest(`/staff/complaints/${encodeURIComponent(code)}`);
+      if (requestId !== staffCaseRequest || select.value !== code) return;
+      ticket = normalizeTicket(payload);
+      staffCaseDetails.set(code, ticket);
+      const index = staffTickets.findIndex((item) => item.code === code);
+      if (index >= 0) staffTickets[index] = ticket;
+    } catch (error) {
+      if (requestId !== staffCaseRequest || select.value !== code) return;
+      if (sessionExpired(error)) return;
+      detail.hidden = false;
+      detail.innerHTML = `<p class="msg">${escapeHtml(error.message)}</p>`;
+      return;
+    }
+  }
+  if (requestId !== staffCaseRequest || select.value !== code) return;
 
   selectedTicketCode = ticket.code;
   const closed = isClosed(ticket);
@@ -893,7 +978,7 @@ function renderCaseEditor() {
       : `${ticket.code} · target ${targetDays(ticket)} hari · ${ticket.unit}`;
   }
 
-  const evidence = evidenceMarkup(ticket.evidence);
+  const evidence = evidenceMarkup(ticket.attachments);
   const internalNotes = ticket.log
     .filter((entry) => entry.visibility === 'internal')
     .map(
@@ -1580,6 +1665,7 @@ async function submitLogin(event) {
 
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(result.user));
     rememberSession();
+    staffCaseDetails.clear();
     staffTickets = (await apiRequest('/staff/complaints')).map(normalizeTicket);
     $('f-login').reset();
     setStaffView();
@@ -1614,6 +1700,33 @@ function mergePublicTicket(updated) {
   const index = tickets.findIndex((item) => item.code === updated.code);
   if (index < 0) return;
 
+  const publicLog = (updated.log || []).filter((entry) => entry.visibility !== 'internal');
+  const attachments = [...(tickets[index].attachments || [])];
+  const knownEvidence = new Set(attachments.map((attachment) => attachment.evidence));
+  const addAttachment = (attachment) => {
+    if (typeof attachment.evidence !== 'string' || knownEvidence.has(attachment.evidence)) return;
+    knownEvidence.add(attachment.evidence);
+    attachments.push(attachment);
+  };
+  if (typeof updated.evidence === 'string') {
+    addAttachment({ evidence: updated.evidence, source: 'Bukti aduan', at: updated.at });
+  }
+  publicLog.forEach((entry) => {
+    if (typeof entry.evidence !== 'string') return;
+    addAttachment({
+      evidence: entry.evidence,
+      source: `Petugas · ${entry.by || 'Unit penanganan'}`,
+      at: entry.at,
+    });
+  });
+  (updated.attachments || [])
+    .filter((attachment) => attachment.visibility !== 'internal')
+    .forEach((attachment) => addAttachment({
+      evidence: attachment.evidence,
+      source: attachment.source,
+      at: attachment.at,
+    }));
+
   tickets[index] = normalizeTicket({
     code: updated.code,
     cat: updated.cat,
@@ -1628,14 +1741,16 @@ function mergePublicTicket(updated) {
     infoRequestedAt: updated.infoRequestedAt,
     infoResponse: updated.infoResponse,
     rating: updated.rating,
-    log: (updated.log || []).filter((entry) => entry.visibility !== 'internal'),
+    log: publicLog,
+    attachments,
   });
 }
 
 async function submitStaffAction(event) {
   event.preventDefault();
   const user = currentSession();
-  const ticket = staffTickets.find((item) => item.code === $('s-t').value);
+  const ticket = staffCaseDetails.get($('s-t').value)
+    || staffTickets.find((item) => item.code === $('s-t').value);
   const message = $('smsg');
   message.textContent = '';
 
@@ -1695,6 +1810,7 @@ async function submitStaffAction(event) {
     const normalized = normalizeTicket(updated);
     const index = staffTickets.findIndex((item) => item.code === normalized.code);
     if (index >= 0) staffTickets[index] = normalized;
+    staffCaseDetails.set(normalized.code, normalized);
     mergePublicTicket(normalized);
 
     $('s-note').value = '';
@@ -1798,6 +1914,7 @@ async function executeDeleteTicket() {
   }
 
   staffTickets = staffTickets.filter((ticket) => !deletedCodes.includes(ticket.code));
+  deletedCodes.forEach((code) => staffCaseDetails.delete(code));
   tickets = tickets.filter((ticket) => !deletedCodes.includes(ticket.code));
   selectedBulkTicketCodes = new Set();
   deleteTargetCodes = [];
@@ -1828,12 +1945,67 @@ async function renderStaffDirectory() {
         const removeButton = staff.role === 'petugas'
           ? `<button class="btn btn-danger btn-small" type="button" data-delete-staff="${escapeHtml(staff.email)}" aria-label="Hapus akun ${escapeHtml(staff.name || staff.email)}">Hapus akun</button>`
           : '';
-        return `<li class="staff-row"><div class="staff-row-info"><strong>${escapeHtml(staff.name || staff.email || 'Petugas')}</strong><small>${escapeHtml(staff.email || '')}</small><small>${escapeHtml(staff.unit || 'Unit belum ditetapkan')}</small></div><div class="staff-row-actions"><span class="staff-status ${staff.registered ? 'ready' : 'pending'}">${status}</span>${removeButton}</div></li>`;
+        const editButton = staff.role === 'petugas'
+          ? `<button class="btn btn-ghost btn-small" type="button" data-edit-staff="${escapeHtml(staff.email)}" data-staff-name="${escapeHtml(staff.name || '')}" data-staff-unit="${escapeHtml(staff.unit || '')}" data-staff-registered="${staff.registered ? 'true' : 'false'}">Ubah</button>`
+          : '';
+        return `<li class="staff-row"><div class="staff-row-info"><strong>${escapeHtml(staff.name || staff.email || 'Petugas')}</strong><small>${escapeHtml(staff.email || '')}</small><small>${escapeHtml(staff.unit || 'Unit belum ditetapkan')}</small></div><div class="staff-row-actions"><span class="staff-status ${staff.registered ? 'ready' : 'pending'}">${status}</span>${editButton}${removeButton}</div></li>`;
       })
       .join('');
   } catch (error) {
     if (sessionExpired(error)) return;
     list.innerHTML = `<li class="empty-row">${escapeHtml(error.message)}</li>`;
+  }
+}
+
+function openStaffEdit(button) {
+  const registered = button.dataset.staffRegistered === 'true';
+  $('edit-staff-original-email').value = button.dataset.editStaff || '';
+  $('edit-staff-name').value = button.dataset.staffName || '';
+  $('edit-staff-email').value = button.dataset.editStaff || '';
+  $('edit-staff-unit').value = button.dataset.staffUnit || '';
+  $('edit-staff-password').value = '';
+  $('edit-staff-password-field').hidden = !registered;
+  $('edit-staff-pending').hidden = registered;
+  $('edit-staff-error').textContent = '';
+  $('staff-edit-modal').hidden = false;
+  window.requestAnimationFrame(() => $('edit-staff-name').focus());
+}
+
+function closeStaffEdit() {
+  $('staff-edit-modal').hidden = true;
+  $('f-edit-staff').reset();
+  $('edit-staff-error').textContent = '';
+  $('edit-staff-error').classList.remove('success-msg');
+}
+
+async function submitStaffEdit(event) {
+  event.preventDefault();
+  const error = $('edit-staff-error');
+  error.textContent = '';
+  error.classList.remove('success-msg');
+
+  const button = $('save-staff-edit');
+  setLoading(button, true, 'Menyimpan…');
+  try {
+    const result = await apiRequest('/auth/staffs', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        originalEmail: $('edit-staff-original-email').value,
+        name: $('edit-staff-name').value.trim(),
+        email: $('edit-staff-email').value.trim(),
+        unit: $('edit-staff-unit').value,
+        password: $('edit-staff-password').value,
+      }),
+    });
+    closeStaffEdit();
+    toast(result?.message || 'Data petugas berhasil diperbarui.', 'success');
+    await renderStaffDirectory();
+  } catch (updateError) {
+    if (sessionExpired(updateError)) return;
+    error.textContent = updateError.message;
+    toast(updateError.message, 'error');
+  } finally {
+    if (button.isConnected) setLoading(button, false);
   }
 }
 
@@ -1905,7 +2077,7 @@ function closeMenu() {
 function tab(name) {
   closeMenu();
 
-  $$('nav button').forEach((button) => {
+  $$('#main-nav button').forEach((button) => {
     button.setAttribute('aria-selected', String(button.dataset.tab === name));
   });
 
@@ -1952,7 +2124,7 @@ function setupReveal() {
 
 /* ─── Events ─── */
 function bindEvents() {
-  $$('nav button').forEach((button) => {
+  $$('#main-nav button').forEach((button) => {
     button.addEventListener('click', () => tab(button.dataset.tab));
   });
 
@@ -2022,7 +2194,17 @@ function bindEvents() {
   });
   $('f-login')?.addEventListener('submit', submitLogin);
   $('f-register-staff')?.addEventListener('submit', submitStaffRegistration);
+  $('f-edit-staff')?.addEventListener('submit', submitStaffEdit);
   $('staff-logout')?.addEventListener('click', logout);
+  $('admin-workspace-nav')?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-admin-view]');
+    if (button) setAdminView(button.dataset.adminView);
+  });
+  $('close-staff-edit')?.addEventListener('click', closeStaffEdit);
+  $('cancel-staff-edit')?.addEventListener('click', closeStaffEdit);
+  $('staff-edit-modal')?.addEventListener('click', (event) => {
+    if (event.target.dataset.closeStaffEdit === 'true') closeStaffEdit();
+  });
 
   $('n-evidence')?.addEventListener('change', (event) => {
     const file = event.target.files?.[0];
@@ -2107,6 +2289,11 @@ function bindEvents() {
   });
 
   $('staff-directory-list')?.addEventListener('click', (event) => {
+    const editButton = event.target.closest('button[data-edit-staff]');
+    if (editButton) {
+      openStaffEdit(editButton);
+      return;
+    }
     const button = event.target.closest('button[data-delete-staff]');
     if (button) deleteStaffAccount(button);
   });
@@ -2126,6 +2313,7 @@ function bindEvents() {
     if (event.key === 'Escape') {
       if (!$('captcha-modal').hidden) closeCaptchaModal();
       closeDeleteModal();
+      closeStaffEdit();
       closeMenu();
     }
   });
@@ -2149,6 +2337,7 @@ async function initialize() {
       const { user } = await apiRequest('/auth/me');
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
       rememberSession();
+      staffCaseDetails.clear();
       staffTickets = (await apiRequest('/staff/complaints')).map(normalizeTicket);
     } catch {
       clearSession();

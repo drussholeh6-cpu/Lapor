@@ -78,6 +78,12 @@ async function listStaffComplaints(req, res) {
   return res.json(complaints);
 }
 
+async function getStaffComplaintByCode(req, res) {
+  const complaint = await complaintService.getStaffComplaintByCode(req.params.code, req.user);
+  if (!complaint) return res.status(404).json({ message: 'Aduan tidak ditemukan.' });
+  return res.json(complaint);
+}
+
 async function updateStaffComplaint(req, res) {
   try {
     const complaint = await complaintService.updateStaffComplaint(req.params.code, req.body || {}, req.user);
@@ -127,6 +133,7 @@ module.exports = {
   getComplaintByCode,
   listComplaints,
   listStaffComplaints,
+  getStaffComplaintByCode,
   resendComplaintReceipt,
   submitRating,
   submitResidentReply,

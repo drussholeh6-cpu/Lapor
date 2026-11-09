@@ -27,6 +27,18 @@ function publicComplaint(complaint) {
   return complaint ? complaintModel.publicComplaint(complaint) : null;
 }
 
+function staffComplaintSummary(complaint) {
+  const summary = { ...complaint };
+  delete summary.evidence;
+  delete summary.attachments;
+  summary.log = (complaint.log || []).map((item) => {
+    const entry = { ...item };
+    delete entry.evidence;
+    return entry;
+  });
+  return summary;
+}
+
 function normalizeCoordinates(coordinates) {
   if (coordinates === null || coordinates === undefined) return null;
   if (!isValidCoordinates(coordinates)) return null;
@@ -46,7 +58,7 @@ async function listComplaints() {
 async function getComplaintByCode(code) {
   if (!validCode(code)) return null;
   const complaint = await complaintModel.findComplaintByCode(String(code).toUpperCase());
-  return publicComplaint(complaint);
+  return complaintModel.publicComplaintDetail(complaint);
 }
 
 async function getComplaintReceipt(code, email) {
@@ -57,7 +69,10 @@ async function getComplaintReceipt(code, email) {
     return null;
   }
 
-  return complaint;
+  return {
+    ...publicComplaint(complaint),
+    name: complaint.name || '',
+  };
 }
 
 async function createComplaint(body) {
@@ -98,13 +113,22 @@ async function createComplaint(body) {
     evidence,
   });
 
-  return publicComplaint(complaint);
+  return complaintModel.publicComplaintDetail(complaint);
 }
 
 async function listStaffComplaints(user) {
   const complaints = await complaintModel.listComplaints();
-  if (user.role === 'admin') return complaints;
-  return complaints.filter((complaint) => complaint.unit === user.unit);
+  const accessible = user.role === 'admin'
+    ? complaints
+    : complaints.filter((complaint) => complaint.unit === user.unit);
+  return accessible.map(staffComplaintSummary);
+}
+
+async function getStaffComplaintByCode(code, user) {
+  if (!validCode(code)) return null;
+  const complaint = await complaintModel.findComplaintByCode(String(code).toUpperCase());
+  if (!complaint || (user.role !== 'admin' && complaint.unit !== user.unit)) return null;
+  return complaint;
 }
 
 async function updateStaffComplaint(code, body, user) {
@@ -184,6 +208,7 @@ module.exports = {
   deleteStaffComplaints,
   getComplaintByCode,
   getComplaintReceipt,
+  getStaffComplaintByCode,
   listComplaints,
   listStaffComplaints,
   submitRating,

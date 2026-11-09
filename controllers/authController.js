@@ -34,6 +34,21 @@ async function registerStaff(req, res) {
   }
 }
 
+async function updateStaff(req, res) {
+  try {
+    const result = await authService.updateStaffAccount({
+      originalEmail: req.body?.originalEmail,
+      name: req.body?.name,
+      email: req.body?.email,
+      unit: req.body?.unit,
+      password: req.body?.password,
+    }, req.user);
+    return res.json({ message: 'Data petugas berhasil diperbarui.', user: result });
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.message, code: error.code });
+  }
+}
+
 async function deleteStaff(req, res) {
   try {
     const result = await authService.deleteStaffAccount({ email: req.body?.email }, req.user);
@@ -60,4 +75,4 @@ async function logout(req, res) {
   return res.status(204).end();
 }
 
-module.exports = { deleteStaff, listStaffAccounts, login, logout, me, registerStaff };
+module.exports = { deleteStaff, listStaffAccounts, login, logout, me, registerStaff, updateStaff };

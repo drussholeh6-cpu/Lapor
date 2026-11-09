@@ -367,7 +367,14 @@
           <button class="btn btn-ghost" id="staff-logout" type="button">Keluar</button>
         </header>
 
-        <div class="kpi-grid" aria-label="Ringkasan kinerja">
+        <nav class="workspace-nav admin-only" id="admin-workspace-nav" aria-label="Menu admin" hidden>
+          <button type="button" class="is-active" data-admin-view="overview" aria-current="page">Ringkasan</button>
+          <button type="button" data-admin-view="cases">Aduan</button>
+          <button type="button" data-admin-view="staff">Petugas</button>
+          <button type="button" data-admin-view="activity">Aktivitas</button>
+        </nav>
+
+        <div class="kpi-grid" data-admin-section="overview" aria-label="Ringkasan kinerja">
           <div class="kpi"><span>Aktif</span><b id="metric-active">0</b><small>aduan berjalan</small></div>
           <div class="kpi kpi-alert"><span>Terlambat</span><b id="metric-late">0</b><small>melewati target</small></div>
           <div class="kpi kpi-urgent"><span>Prioritas tinggi</span><b id="metric-urgent">0</b><small>perlu perhatian</small></div>
@@ -376,7 +383,7 @@
           <div class="kpi" id="kpi-units" hidden><span>Unit aktif</span><b id="metric-units">0</b><small>unit terlibat</small></div>
         </div>
 
-        <div class="workspace-grid">
+        <div class="workspace-grid" data-admin-section="cases">
           <section class="panel panel-list">
             <div class="panel-head">
               <div><h2>Daftar aduan</h2><p>Pilih laporan untuk melihat dan memperbarui tindak lanjut.</p></div>
@@ -469,7 +476,7 @@
               <div class="field full">
                 <label for="staff-evidence">Bukti penanganan <span class="optional">(opsional, maks. 2 MB)</span></label>
                 <input id="staff-evidence" type="file" accept="image/*">
-                <p class="hint">Foto hanya disimpan pada data aduan.</p>
+                <p class="hint">Foto mengikuti visibilitas catatan. Bukti internal hanya terlihat petugas; bukti publik dapat dilihat warga saat melacak.</p>
               </div>
               <div class="full staff-actions">
                 <button class="btn btn-dark" name="operation" value="update" type="submit" id="staff-submit">Simpan pembaruan</button>
@@ -481,7 +488,7 @@
           </section>
         </div>
 
-        <section class="panel admin-only" id="staff-admin-panel" hidden>
+        <section class="panel admin-only" id="staff-admin-panel" data-admin-section="staff" hidden>
           <div class="panel-head">
             <div><h2>Tim petugas</h2><p>Kelola akun dan unit kerja petugas.</p></div>
             <span class="label-chip soft">Khusus admin</span>
@@ -514,7 +521,7 @@
           </div>
         </section>
 
-        <section class="panel activity-panel">
+        <section class="panel activity-panel" data-admin-section="activity">
           <div class="panel-head">
             <div><h2>Aktivitas terbaru</h2><p>Perubahan yang tercatat pada aduan unit Anda.</p></div>
           </div>
@@ -575,6 +582,44 @@
         <button type="button" class="btn btn-danger" id="confirm-delete">Ya, hapus</button>
       </div>
     </div>
+  </div>
+
+  <div id="staff-edit-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-staff-edit="true"></div>
+    <form id="f-edit-staff" class="modal-card staff-edit-card" role="dialog" aria-modal="true" aria-labelledby="staff-edit-title">
+      <div class="modal-header">
+        <div>
+          <span class="label-chip soft">Pengelolaan petugas</span>
+          <h2 id="staff-edit-title">Ubah data petugas</h2>
+        </div>
+        <button type="button" class="icon-button" id="close-staff-edit" aria-label="Tutup">×</button>
+      </div>
+      <input id="edit-staff-original-email" type="hidden">
+      <label for="edit-staff-name">Nama lengkap</label>
+      <input id="edit-staff-name" required maxlength="80">
+      <label for="edit-staff-email">Email</label>
+      <input id="edit-staff-email" type="email" required maxlength="160">
+      <label for="edit-staff-unit">Unit kerja</label>
+      <select id="edit-staff-unit">
+        <option value="Seksi Pemeliharaan Jalan">Seksi Pemeliharaan Jalan</option>
+        <option value="Dinas Kebersihan">Dinas Kebersihan</option>
+        <option value="Seksi Sarana Umum">Seksi Sarana Umum</option>
+        <option value="Tim Drainase">Tim Drainase</option>
+        <option value="Bagian Pelayanan Kelurahan">Bagian Pelayanan Kelurahan</option>
+        <option value="Koordinasi Lintas Instansi">Koordinasi Lintas Instansi</option>
+      </select>
+      <div id="edit-staff-password-field">
+        <label for="edit-staff-password">Kata sandi baru <span class="optional">(kosongkan jika tidak diubah)</span></label>
+        <input id="edit-staff-password" type="password" minlength="6" maxlength="128" autocomplete="new-password" placeholder="Minimal 6 karakter">
+        <p class="hint">Perubahan kata sandi berlaku segera. Sampaikan kata sandi baru kepada petugas dengan aman.</p>
+      </div>
+      <p class="hint" id="edit-staff-pending" hidden>Akun ini belum dibuat. Perbarui data dasar di sini, lalu buat akun login melalui formulir tambah petugas.</p>
+      <p class="msg" id="edit-staff-error" role="alert"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="cancel-staff-edit">Batal</button>
+        <button type="submit" class="btn btn-dark" id="save-staff-edit">Simpan perubahan</button>
+      </div>
+    </form>
   </div>
 
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
