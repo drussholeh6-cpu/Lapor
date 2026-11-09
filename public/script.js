@@ -1266,7 +1266,7 @@ function renderMade(ticket, emailDelivery, recipientEmail) {
     : '<button class="btn btn-dark" id="m-resend" type="button">Kirim ulang email</button>';
 
   made.hidden = false;
-  made.innerHTML = `<span class="label-chip soft">${label}</span><h2>${heading}</h2><div class="slip"><div class="slip-h"><div><div class="code">${escapeHtml(ticket.code)}</div><p class="meta">Simpan nomor ini untuk melacak perkembangan aduan.</p></div><div class="stamp s-go">Diterima</div></div></div>${emailNotice}<div class="done-actions">${resendButton}<button class="btn ${emailSent ? 'btn-dark' : 'btn-ghost'}" id="m-cp" type="button">Salin nomor</button><button class="btn btn-ghost" id="m-go" type="button">Lihat progres</button><button class="btn btn-ghost" id="m-new" type="button">Buat aduan lain</button></div><p class="done-hint" id="m-h"></p>`;
+  made.innerHTML = `<span class="label-chip soft">${label}</span><h2>${heading}</h2><div class="slip"><div class="slip-h"><div><div class="slip-code-row"><div class="code">${escapeHtml(ticket.code)}</div><button class="btn btn-ghost slip-copy" id="m-cp" type="button">Salin</button></div><p class="meta">Simpan nomor ini untuk melacak perkembangan aduan.</p></div><div class="stamp s-go">Diterima</div></div></div>${emailNotice}<div class="done-actions">${resendButton}<button class="btn btn-ghost" id="m-go" type="button">Lihat progres</button><button class="btn btn-ghost" id="m-new" type="button">Buat aduan lain</button></div><p class="done-hint" id="m-h"></p>`;
 
   $('m-resend')?.addEventListener('click', async (event) => {
     const button = event.currentTarget;
@@ -1293,12 +1293,31 @@ function renderMade(ticket, emailDelivery, recipientEmail) {
   });
 
   $('m-cp')?.addEventListener('click', async () => {
+    const button = $('m-cp');
     try {
-      await navigator.clipboard.writeText(ticket.code);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(ticket.code);
+      } else {
+        const copyField = document.createElement('textarea');
+        copyField.value = ticket.code;
+        copyField.setAttribute('readonly', '');
+        copyField.style.position = 'fixed';
+        copyField.style.opacity = '0';
+        document.body.append(copyField);
+        let copied;
+        try {
+          copyField.select();
+          copied = document.execCommand('copy');
+        } finally {
+          copyField.remove();
+        }
+        if (!copied) throw new Error('Penyalinan tidak didukung browser ini.');
+      }
+      button.textContent = 'Tersalin';
       $('m-h').textContent = 'Nomor tersalin.';
       toast('Nomor aduan tersalin.', 'success');
     } catch {
-      $('m-h').textContent = `Catat nomor ini: ${ticket.code}`;
+      $('m-h').textContent = `Nomor belum bisa disalin. Silakan salin manual: ${ticket.code}`;
     }
   });
 
