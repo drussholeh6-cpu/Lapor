@@ -1,4 +1,4 @@
-const BREVO_EMAIL_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
+const nodemailer = require('nodemailer');
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -11,16 +11,25 @@ function escapeHtml(value) {
 }
 
 function getEmailConfig() {
-  const apiKey = process.env.BREVO_API_KEY?.trim();
-  const senderEmail = process.env.BREVO_SENDER_EMAIL?.trim();
-  if (!apiKey || !senderEmail) {
-    throw new Error('BREVO_API_KEY and BREVO_SENDER_EMAIL must be configured.');
+  const host = process.env.SMTP_HOST?.trim() || 'smtp-relay.brevo.com';
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
+  const senderEmail = process.env.SMTP_FROM_EMAIL?.trim();
+  if (!user || !pass || !senderEmail) {
+    throw new Error('SMTP_USER, SMTP_PASS and SMTP_FROM_EMAIL must be configured.');
+  }
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('SMTP_PORT must be a valid TCP port.');
   }
 
   return {
-    apiKey,
+    host,
+    port,
+    user,
+    pass,
     senderEmail,
-    senderName: process.env.BREVO_SENDER_NAME?.trim() || 'Lacak Aduan',
+    senderName: process.env.SMTP_FROM_NAME?.trim() || 'Lacak Aduan',
   };
 }
 
@@ -42,6 +51,22 @@ function assertConfigured() {
   const config = getEmailConfig();
   getPublicAppUrl();
   return config;
+}
+
+function createSmtpTransport(config) {
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.port === 465,
+    requireTLS: config.port !== 465,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
 }
 
 function buildComplaintReceipt({ complaint, recipientName }) {
@@ -134,28 +159,16 @@ function buildComplaintReceipt({ complaint, recipientName }) {
 }
 
 async function sendComplaintReceipt({ complaint, recipientEmail, recipientName }) {
-  const { apiKey, senderEmail, senderName } = assertConfigured();
+  const { senderEmail, senderName, ...smtpConfig } = assertConfigured();
   const email = buildComplaintReceipt({ complaint, recipientName });
-  const response = await fetch(BREVO_EMAIL_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      accept: 'application/json',
-      'api-key': apiKey,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      sender: { name: senderName, email: senderEmail },
-      to: [{ email: recipientEmail, name: recipientName?.trim() || 'Warga' }],
-      subject: email.subject,
-      htmlContent: email.htmlContent,
-      textContent: email.textContent,
-    }),
-    signal: AbortSignal.timeout(10_000),
+  const transporter = createSmtpTransport(smtpConfig);
+  await transporter.sendMail({
+    from: { name: senderName, address: senderEmail },
+    to: { name: recipientName?.trim() || 'Warga', address: recipientEmail },
+    subject: email.subject,
+    html: email.htmlContent,
+    text: email.textContent,
   });
-
-  if (!response.ok) {
-    throw new Error(`Brevo rejected the confirmation email (HTTP ${response.status}).`);
-  }
 }
 
 module.exports = {
