@@ -11,6 +11,7 @@ function registerGlobalMiddleware(app) {
 }
 
 function registerStaticFiles(app, publicDir) {
+  app.use('/vendor/leaflet', require('express').static(path.dirname(require.resolve('leaflet'))));
   app.use(require('express').static(publicDir));
 }
 
