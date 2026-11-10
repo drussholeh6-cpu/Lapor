@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Lacak Aduan — Kelurahan Sukamaju</title>
-  <meta name="description" content="Lacak Aduan Kelurahan Sukamaju: kirim aduan warga tanpa akun, dapatkan nomor pelacakan, dan pantau tindak lanjut petugas secara transparan.">
+  <title>Lacak Aduan — Pemerintah Kota Lowokwaru</title>
+  <meta name="description" content="Layanan aduan publik Kota Lowokwaru: kirim laporan tanpa akun, dapatkan nomor pelacakan, dan pantau tindak lanjut secara transparan.">
   <meta name="theme-color" content="#f6f3ea">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b1f17'/%3E%3Cpath d='M20 44V20h12c7 0 12 4 12 10s-5 10-12 10h-5v4h-7Zm7-10h5c3 0 5-1 5-4s-2-4-5-4h-5v8Z' fill='%23d8f36b'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
@@ -33,7 +33,7 @@
         </span>
         <span class="brand-text">
           <b>Lacak Aduan</b>
-          <small>Kelurahan Sukamaju</small>
+          <small>Pemerintah Kota Lowokwaru</small>
         </span>
       </button>
 
@@ -68,7 +68,7 @@
     <section id="beranda" class="page">
       <div class="hero">
         <div class="hero-copy reveal">
-          <p class="eyebrow"><i></i> Layanan publik · Sukamaju</p>
+          <p class="eyebrow"><i></i> Layanan publik · Kota Lowokwaru</p>
           <h1>Laporkan aduan. Pantau tindak lanjut.</h1>
           <p class="lead">Sampaikan laporan dan gunakan nomor pelacakan untuk melihat perkembangannya, dari verifikasi hingga selesai.</p>
           <div class="actions hero-actions">
@@ -242,7 +242,7 @@
       <form id="f-track" class="track-card reveal" autocomplete="off">
         <label for="q">Nomor aduan</label>
         <div class="track-input">
-          <input id="q" placeholder="ADU-2610-000000" maxlength="15" pattern="ADU-\d{4}-\d{4,6}" spellcheck="false" inputmode="text">
+          <input id="q" placeholder="ADU-2611-902617" maxlength="15" pattern="ADU-\d{4}-\d{4,6}" spellcheck="false" inputmode="text">
           <button class="btn btn-dark" type="submit">Cari aduan <span class="btn-arrow" aria-hidden="true">↗</span></button>
         </div>
         <p class="try">Format nomor: <b>ADU-TAHUNBULAN-6ANGKA</b>. Nomor tertera pada konfirmasi setelah aduan dikirim.</p>
@@ -254,9 +254,9 @@
         <header class="section-head">
           <div>
             <p class="eyebrow muted"><i></i> Papan terbuka</p>
-            <h2>Yang sedang <em>ditangani</em>.</h2>
+            <h2>Papan <em>pemantauan</em> aduan.</h2>
           </div>
-          <p class="section-note">Klik baris untuk melihat riwayatnya.</p>
+          <p class="section-note">Pantau aduan yang sedang berjalan maupun yang telah selesai. Klik baris untuk melihat riwayat.</p>
         </header>
         <div class="stats" id="stats" aria-live="polite"></div>
         <div class="board-grid">
@@ -267,7 +267,7 @@
           <div class="table-panel">
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Nomor</th><th>Jenis</th><th>Lokasi</th><th>Status</th><th>Umur</th></tr></thead>
+                <thead><tr><th>Nomor</th><th>Jenis</th><th>Lokasi</th><th>Status</th><th>Umur</th><th><span class="visually-hidden">Buka detail</span></th></tr></thead>
                 <tbody id="rows"></tbody>
               </table>
             </div>
@@ -617,7 +617,7 @@
     <div class="shell footer-inner">
       <div>
         <b>Lacak Aduan</b>
-        <span>Kelurahan Sukamaju, Kota Contoh</span>
+        <span>Pemerintah Kota Lowokwaru</span>
       </div>
       <span>Web design by TIM PEDEDE</span>
     </div>
