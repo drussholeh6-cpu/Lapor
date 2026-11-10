@@ -107,7 +107,20 @@ async function updateStaffComplaint(req, res) {
     if (!complaint) {
       return res.status(409).json({ message: 'Aduan tidak ditemukan, tidak dapat diakses, sudah ditutup, atau pembaruannya tidak valid.' });
     }
-    return res.json(complaint);
+
+    let emailSent = false;
+    try {
+      await emailService.sendComplaintUpdate({
+        complaint,
+        recipientEmail: String(complaint.email || '').trim().toLowerCase(),
+        recipientName: String(complaint.name || '').trim(),
+      });
+      emailSent = true;
+    } catch (emailError) {
+      console.error(`Pembaruan aduan ${complaint.code} tersimpan tetapi email pemberitahuan gagal: ${emailError.message}`);
+    }
+
+    return res.json({ ...complaint, emailNotification: { sent: emailSent } });
   } catch (error) {
     return res.status(error.status || 400).json({ message: error.message });
   }

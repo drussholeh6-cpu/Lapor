@@ -50,6 +50,8 @@ Email pengonfirmasi nomor aduan dikirim melalui Brevo transactional email API le
 
 Email konfirmasi wajib berhasil dikirim agar pengajuan dianggap berhasil. Kredensial atau konfigurasi yang belum tersedia akan menolak pengajuan sebelum menyimpan aduan. Jika Brevo mengalami gangguan setelah aduan tersimpan, aplikasi menampilkan nomor aduan dan tombol **Kirim ulang email**; pengiriman ulang dibatasi 5 kali per jam.
 
+Setiap perubahan status oleh petugas/admin, termasuk permintaan informasi tambahan, mengirim email pemberitahuan kepada pengadu. Catatan internal tidak disertakan dalam email. Jika pengiriman gagal, perubahan tetap tersimpan dan dashboard memberi tahu petugas/admin.
+
 Foto bukti mendukung JPG, PNG, WebP, HEIC, dan HEIF hingga 10 MB sebelum dikompres. HEIC/HEIF dikonversi ke JPEG di browser sebelum dikirim.
 
 ## Role petugas

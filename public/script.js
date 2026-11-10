@@ -2061,11 +2061,20 @@ async function submitStaffAction(event) {
     $('s-rejection-reason').value = '';
     $('s-visibility').value = 'public';
     $('staff-evidence').value = '';
-    $('smsg').textContent =
+    const updateMessage =
       operation === 'request-info'
         ? 'Permintaan informasi tersimpan dan tampil saat warga melacak aduan.'
         : 'Pembaruan tersimpan dan dapat dilihat warga melalui nomor aduan.';
-    toast(operation === 'request-info' ? 'Permintaan informasi terkirim.' : 'Pembaruan tersimpan.', 'success');
+    const emailSent = updated.emailNotification?.sent === true;
+    $('smsg').textContent = emailSent
+      ? `${updateMessage} Email pemberitahuan juga terkirim kepada pengadu.`
+      : `${updateMessage} Namun, email pemberitahuan gagal dikirim. Periksa konfigurasi email.`;
+    toast(
+      emailSent
+        ? operation === 'request-info' ? 'Permintaan informasi dan email pemberitahuan terkirim.' : 'Pembaruan dan email pemberitahuan terkirim.'
+        : 'Pembaruan tersimpan, tetapi email pemberitahuan gagal dikirim.',
+      emailSent ? 'success' : 'error',
+    );
     renderBoard();
     renderDashboard();
     renderCaseEditor();

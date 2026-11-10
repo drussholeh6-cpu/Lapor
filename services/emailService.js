@@ -133,9 +133,59 @@ function buildComplaintReceipt({ complaint, recipientName }) {
   };
 }
 
-async function sendComplaintReceipt({ complaint, recipientEmail, recipientName }) {
+function buildComplaintUpdateEmail({ complaint, recipientName }) {
+  const name = recipientName?.trim() || 'Warga';
+  const code = String(complaint.code || '');
+  const appUrl = getPublicAppUrl();
+  const trackingUrl = `${appUrl}/?track=${encodeURIComponent(code)}#lacak`;
+  const latestEntry = complaint.log?.[complaint.log.length - 1];
+  const waitingForInfo = Boolean(complaint.waitingForInfo);
+  const status = waitingForInfo
+    ? 'Informasi tambahan dibutuhkan'
+    : latestEntry?.s === -1
+      ? 'Ditolak'
+      : ['Diterima', 'Diverifikasi', 'Diproses', 'Selesai'][latestEntry?.s] || 'Diperbarui';
+  const publicNote = waitingForInfo
+    ? String(complaint.infoPrompt || '')
+    : latestEntry?.visibility !== 'internal'
+      ? String(latestEntry?.note || '')
+      : '';
+  const subject = waitingForInfo
+    ? `Informasi tambahan diperlukan untuk aduan ${code}`
+    : `Perkembangan aduan ${code}: ${status}`;
+  const details = publicNote
+    ? `<p style="margin:18px 0 0;padding:14px;border-left:3px solid #2563eb;background:#f8fafc;color:#334155;font-size:13px;line-height:1.7;"><b>${waitingForInfo ? 'Informasi' : 'Catatan petugas'}:</b><br>${escapeHtml(publicNote)}</p>`
+    : '';
+  const htmlContent = `<!doctype html>
+<html lang="id">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:30px 14px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <main style="max-width:560px;margin:0 auto;padding:28px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;">
+    <p style="margin:0 0 8px;color:#2563eb;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Pembaruan Lacak Aduan</p>
+    <h1 style="margin:0 0 16px;font-size:23px;line-height:1.3;">Perkembangan aduan Anda</h1>
+    <p style="font-size:14px;line-height:1.7;">Halo <b>${escapeHtml(name)}</b>, status aduan <b>${escapeHtml(code)}</b> sekarang: <b>${escapeHtml(status)}</b>.</p>
+    ${details}
+    <p style="margin:24px 0;"><a href="${escapeHtml(trackingUrl)}" style="display:inline-block;padding:13px 20px;border-radius:8px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Lihat resi dan perkembangan aduan</a></p>
+    <p style="margin:0;color:#64748b;font-size:11px;line-height:1.7;">Email otomatis dari Lacak Aduan. Anda dapat membuka tautan di atas tanpa login.</p>
+  </main>
+</body>
+</html>`;
+  const textContent = [
+    `Halo ${name},`,
+    '',
+    `Status aduan ${code} sekarang: ${status}.`,
+    publicNote ? `${waitingForInfo ? 'Informasi' : 'Catatan petugas'}: ${publicNote}` : '',
+    '',
+    `Lihat resi dan perkembangan aduan: ${trackingUrl}`,
+    '',
+    'Email otomatis dari Lacak Aduan.',
+  ].filter(Boolean).join('\n');
+
+  return { subject, htmlContent, textContent };
+}
+
+async function deliverEmail({ email, recipientEmail, recipientName }) {
   const { apiKey, senderEmail, senderName } = assertConfigured();
-  const email = buildComplaintReceipt({ complaint, recipientName });
   const response = await fetch(BREVO_EMAIL_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -162,12 +212,30 @@ async function sendComplaintReceipt({ complaint, recipientEmail, recipientName }
       responseMessage = '';
     }
 
-    throw new Error(`Brevo rejected the confirmation email (HTTP ${response.status}${responseMessage ? `: ${responseMessage}` : ''}).`);
+    throw new Error(`Brevo rejected the email (HTTP ${response.status}${responseMessage ? `: ${responseMessage}` : ''}).`);
   }
+}
+
+async function sendComplaintReceipt({ complaint, recipientEmail, recipientName }) {
+  await deliverEmail({
+    email: buildComplaintReceipt({ complaint, recipientName }),
+    recipientEmail,
+    recipientName,
+  });
+}
+
+async function sendComplaintUpdate({ complaint, recipientEmail, recipientName }) {
+  await deliverEmail({
+    email: buildComplaintUpdateEmail({ complaint, recipientName }),
+    recipientEmail,
+    recipientName,
+  });
 }
 
 module.exports = {
   assertConfigured,
   buildComplaintReceipt,
+  buildComplaintUpdateEmail,
   sendComplaintReceipt,
+  sendComplaintUpdate,
 };
