@@ -2665,6 +2665,12 @@ async function initialize() {
   setStaffView();
   window.setInterval(refreshStaffComplaints, 60_000);
   primeUserLocation();
+
+  const trackingCode = new URLSearchParams(window.location.search).get('track');
+  if (trackingCode) {
+    tab('lacak');
+    await showTicket(trackingCode);
+  }
 }
 
 initialize();

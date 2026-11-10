@@ -55,10 +55,10 @@ function buildComplaintReceipt({ complaint, recipientName }) {
   }).format(new Date(complaint.at));
   const appUrl = getPublicAppUrl();
   const trackingLink = appUrl
-    ? `<a href="${escapeHtml(appUrl)}" style="display:inline-block;padding:13px 20px;border-radius:8px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Lacak perkembangan aduan&nbsp; &rarr;</a>`
+    ? `<a href="${escapeHtml(`${appUrl}/?track=${encodeURIComponent(code)}#lacak`)}" style="display:inline-block;padding:13px 20px;border-radius:8px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Lacak perkembangan aduan&nbsp; &rarr;</a>`
     : '';
   const trackingInstruction = appUrl
-    ? 'Buka Lacak Aduan dan masukkan nomor di atas untuk melihat perkembangannya.'
+    ? 'Klik tombol lacak untuk melihat resi dan perkembangan aduan Anda secara langsung.'
     : 'Buka situs Lacak Aduan dan masukkan nomor di atas untuk melihat perkembangannya.';
 
   const htmlContent = `<!doctype html>
@@ -120,7 +120,7 @@ function buildComplaintReceipt({ complaint, recipientName }) {
     `Tanggal dikirim: ${createdAt}`,
     '',
     trackingInstruction,
-    appUrl ? appUrl : '',
+    trackingLink ? `Lacak perkembangan aduan: ${appUrl}/?track=${encodeURIComponent(code)}#lacak` : '',
     '',
     'Simpan email ini sebagai bukti pengiriman.',
     'Email ini dikirim otomatis oleh Lacak Aduan.',
