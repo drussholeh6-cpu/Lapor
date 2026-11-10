@@ -1,4 +1,5 @@
 const complaintService = require('../services/complaintService');
+const complaintReportService = require('../services/complaintReportService');
 const emailService = require('../services/emailService');
 
 async function listComplaints(req, res) {
@@ -78,6 +79,22 @@ async function listStaffComplaints(req, res) {
   return res.json(complaints);
 }
 
+async function exportStaffComplaintReport(req, res) {
+  const filters = {
+    from: req.query.from || '',
+    to: req.query.to || '',
+    region: req.query.region || 'all',
+  };
+  const complaints = await complaintService.listStaffReportComplaints(req.user, filters);
+  const workbook = await complaintReportService.createComplaintWorkbook(complaints, filters);
+  const filename = `laporan-aduan-${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Cache-Control', 'no-store');
+  return res.send(Buffer.from(workbook));
+}
+
 async function getStaffComplaintByCode(req, res) {
   const complaint = await complaintService.getStaffComplaintByCode(req.params.code, req.user);
   if (!complaint) return res.status(404).json({ message: 'Aduan tidak ditemukan.' });
@@ -130,6 +147,7 @@ async function submitRating(req, res) {
 module.exports = {
   createComplaint,
   deleteStaffComplaints,
+  exportStaffComplaintReport,
   getComplaintByCode,
   listComplaints,
   listStaffComplaints,

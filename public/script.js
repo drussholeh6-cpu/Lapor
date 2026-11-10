@@ -949,34 +949,46 @@ function renderDashboardReport(cases) {
   renderDashboardHistory(filtered);
 }
 
-function exportDashboardReport() {
-  const cases = filteredDashboardCases(accessibleTickets());
-  const rows = [
-    ['Nomor aduan', 'Tanggal', 'Wilayah', 'Lokasi', 'Kategori', 'Status', 'Prioritas', 'Unit', 'Catatan terakhir'],
-    ...cases.map((ticket) => [
-      ticket.code,
-      new Date(ticket.at).toLocaleDateString('id-ID'),
-      ticketRegion(ticket),
-      ticket.loc,
-      ticket.cat,
-      statusLabel(ticket),
-      priorityLabel(ticket.priority),
-      ticket.unit,
-      currentEntry(ticket).note,
-    ]),
-  ];
-  const csv = `\uFEFF${rows.map((row) => row.map((cell) => {
-    const value = String(cell ?? '');
-    const safeValue = /^[\t\r=+\-@]/.test(value) ? `'${value}` : value;
-    return `"${safeValue.replace(/"/g, '""')}"`;
-  }).join(',')).join('\r\n')}`;
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `laporan-aduan-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+async function exportDashboardReport(event) {
+  const button = event.currentTarget;
+  const params = new URLSearchParams();
+  ['from', 'to', 'region'].forEach((key) => {
+    const value = $(`report-${key}`)?.value || (key === 'region' ? 'all' : '');
+    if (value) params.set(key, value);
+  });
+
+  setLoading(button, true, 'Menyiapkan Excel…');
+  try {
+    const response = await fetch(`/api/staff/complaints/report.xlsx?${params}`, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+    });
+    if (!response.ok) {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+      const error = new Error(payload?.message || 'Laporan Excel gagal dibuat.');
+      error.status = response.status;
+      if (sessionExpired(error)) return;
+      throw error;
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `laporan-aduan-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Laporan Excel berhasil diunduh.', 'success');
+  } catch (error) {
+    toast(error.message, 'error');
+  } finally {
+    setLoading(button, false);
+  }
 }
 
 async function refreshStaffComplaints() {
@@ -2475,7 +2487,6 @@ function bindEvents() {
     $(id)?.addEventListener('change', renderDashboard);
   });
   $('export-excel')?.addEventListener('click', exportDashboardReport);
-  $('export-pdf')?.addEventListener('click', () => window.print());
 
   $('staff-rows')?.addEventListener('click', (event) => {
     const checkbox = event.target.closest('input[data-select-ticket]');
