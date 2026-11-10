@@ -344,12 +344,15 @@
               </div>
             </div>
             <div class="full form-submit">
-              <div class="captcha-row" aria-label="Verifikasi matematika">
-                <span class="captcha-question" id="n-captcha-question">Memuat soal…</span>
-                <input id="n-captcha-answer" type="number" inputmode="numeric" min="0" max="30" step="1" placeholder="Jawaban" aria-label="Jawaban soal matematika">
+              <div id="n-captcha-container" hidden>
+                <p class="hint">Satu langkah keamanan sebelum aduan dikirim:</p>
+                <div class="captcha-row" aria-label="Verifikasi matematika">
+                  <span class="captcha-question" id="n-captcha-question">Memuat soal…</span>
+                  <input id="n-captcha-answer" type="number" inputmode="numeric" min="0" max="30" step="1" placeholder="Jawaban" aria-label="Jawaban soal matematika">
+                </div>
+                <input id="n-captcha-token" type="hidden">
+                <p class="hint form-error" id="n-captcha-error" role="alert"></p>
               </div>
-              <input id="n-captcha-token" type="hidden">
-              <p class="hint form-error" id="n-captcha-error" role="alert"></p>
               <button class="btn btn-dark btn-wide" type="submit" id="submit-complaint">Kirim aduan <span class="btn-arrow" aria-hidden="true">↗</span></button>
               <p class="hint">Nama, email, dan foto hanya diakses petugas; identitas tidak ditampilkan, titik peta publik dibulatkan.</p>
             </div>

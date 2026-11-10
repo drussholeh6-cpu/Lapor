@@ -99,17 +99,19 @@ function setLoading(button, loading, label = 'Memproses…') {
 
 async function loadMathChallenge() {
   const question = $('n-captcha-question');
-  if (!question) return;
+  if (!question) return false;
   try {
     const challenge = await apiRequest('/challenge');
     question.textContent = challenge.question;
     $('n-captcha-token').value = challenge.token;
     $('n-captcha-answer').value = '';
     $('n-captcha-error').textContent = '';
+    return true;
   } catch {
     question.textContent = 'Soal verifikasi belum tersedia';
     $('n-captcha-token').value = '';
     $('n-captcha-error').textContent = 'Muat ulang halaman atau coba kembali sebentar lagi.';
+    return false;
   }
 }
 
@@ -1719,7 +1721,10 @@ function resetCompose() {
   }
   complaintEvidenceSelection = null;
   complaintEvidencePreviewSequence += 1;
-  loadMathChallenge();
+  $('n-captcha-container').hidden = true;
+  $('n-captcha-token').value = '';
+  $('n-captcha-answer').value = '';
+  $('n-captcha-error').textContent = '';
   const made = $('made');
   if (made) made.hidden = true;
   if ($('n-lat')) $('n-lat').value = '';
@@ -1842,10 +1847,26 @@ async function submitNewTicket(event) {
     return;
   }
 
+  const category = $('n-cat').value;
+  const coordinates = latitudeText && longitudeText ? roundPublicPoint(latitude, longitude) : null;
+  const complaintText = $('n-text').value.trim();
+  if (!complaintText) {
+    error.textContent = 'Jelaskan kejadian yang Anda alami agar petugas dapat menilai dengan cepat.';
+    $('n-text').focus();
+    return;
+  }
+
+  const captchaContainer = $('n-captcha-container');
   const captchaToken = $('n-captcha-token').value;
   const captchaAnswer = $('n-captcha-answer').value.trim();
-  if (!captchaToken || !captchaAnswer) {
+  if (!captchaToken) {
+    captchaContainer.hidden = false;
+    if (await loadMathChallenge()) $('n-captcha-answer').focus();
+    return;
+  }
+  if (!captchaAnswer) {
     $('n-captcha-error').textContent = 'Jawab soal matematika sebelum mengirim aduan.';
+    $('n-captcha-answer').focus();
     return;
   }
 
@@ -1858,15 +1879,6 @@ async function submitNewTicket(event) {
       : null;
   } catch (reason) {
     error.textContent = reason.message;
-    return;
-  }
-
-  const category = $('n-cat').value;
-  const coordinates = latitudeText && longitudeText ? roundPublicPoint(latitude, longitude) : null;
-  const complaintText = $('n-text').value.trim();
-  if (!complaintText) {
-    error.textContent = 'Jelaskan kejadian yang Anda alami agar petugas dapat menilai dengan cepat.';
-    $('n-text').focus();
     return;
   }
 
@@ -2485,7 +2497,6 @@ function tab(name) {
   if (name === 'lacak') ensurePublicMap();
   if (name === 'buat') {
     ensurePickerMap();
-    loadMathChallenge();
   }
   if (name === 'petugas') {
     setStaffView();
