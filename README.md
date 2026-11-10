@@ -205,8 +205,10 @@ Catatan penting:
 1. Buat project baru di Supabase
 2. Buka SQL Editor di dashboard Supabase
 3. Jalankan script yang ada di `database/supabase.sql`
-4. Pastikan tabel `complaints` berhasil dibuat
-5. Jika project sudah memiliki data lama, Anda dapat menggunakan script migrasi Firebase jika diperlukan
+4. Pastikan tabel `complaints` dan bucket `complaint-evidence` berhasil dibuat
+5. Bucket bukti foto dibuat publik agar warga dapat melihat bukti aduan melalui URL; unggah tetap dilakukan server dengan `SUPABASE_SERVICE_ROLE_KEY`
+6. Aduan baru menyimpan URL foto di JSONB, sementara file JPEG disimpan di Supabase Storage
+7. Data lama yang masih berisi `data:image/...;base64` perlu dimigrasikan ke bucket sebelum ukuran database dan respons daftar aduan ikut mengecil
 
 File SQL ini berisi struktur dasar untuk menyimpan data aduan, termasuk field utama seperti kode, lokasi, deskripsi, email, status, log, dan metadata lain yang dibutuhkan aplikasi.
 

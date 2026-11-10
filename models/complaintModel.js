@@ -1,6 +1,20 @@
 const { randomInt } = require('node:crypto');
 const { realtimeDatabase } = require('../config/supabase');
 
+const EVIDENCE_BUCKET = 'complaint-evidence';
+
+async function storeEvidence(code, evidence, suffix = 'reporter') {
+  if (typeof evidence !== 'string' || !evidence.startsWith('data:image/jpeg;base64,')) return evidence || null;
+  const base64 = evidence.slice('data:image/jpeg;base64,'.length);
+  const bytes = Buffer.from(base64, 'base64');
+  if (!bytes.length || bytes.length > 2 * 1024 * 1024) throw new Error('Bukti foto tidak valid atau melebihi 2 MB.');
+  const path = `${code}/${suffix}-${randomInt(0, 1000000000)}.jpg`;
+  const { data, error } = await realtimeDatabase().storage.from(EVIDENCE_BUCKET)
+    .upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw error;
+  return realtimeDatabase().storage.from(EVIDENCE_BUCKET).getPublicUrl(data.path).data.publicUrl;
+}
+
 const COMPLAINTS_TABLE = 'complaints';
 const VALID_PRIORITIES = ['normal', 'high', 'urgent'];
 const VALID_VISIBILITY = ['public', 'internal'];
@@ -104,7 +118,7 @@ async function saveComplaintUpdate(code, complaint) {
 async function listComplaints() {
   const { data, error } = await realtimeDatabase()
     .from(COMPLAINTS_TABLE)
-    .select('*')
+    .select('code,data,created_at')
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -141,15 +155,8 @@ async function createComplaint(input) {
     priority: input.priority,
     unit: input.unit,
     coordinates: input.coordinates || null,
-    evidence: input.evidence || null,
-    attachments: input.evidence
-      ? [{
-        evidence: input.evidence,
-        source: 'Pelapor',
-        at: now,
-        visibility: 'public',
-      }]
-      : [],
+    evidence: null,
+    attachments: [],
     waitingForInfo: false,
     infoPrompt: '',
     infoRequestedAt: null,
@@ -169,6 +176,10 @@ async function createComplaint(input) {
 
   for (;;) {
     complaint.code = `${prefix}-${String(randomInt(0, 1000000)).padStart(6, '0')}`;
+    if (input.evidence) {
+      complaint.evidence = await storeEvidence(complaint.code, input.evidence);
+      complaint.attachments = [{ evidence: complaint.evidence, source: 'Pelapor', at: now, visibility: 'public' }];
+    }
     const { data, error } = await realtimeDatabase()
       .from(COMPLAINTS_TABLE)
       .insert({ code: complaint.code, data: complaint })
@@ -207,12 +218,13 @@ async function applyStaffAction(code, input, user) {
   }
 
   if (operation === 'request-info') {
+    const storedEvidence = input.evidence ? await storeEvidence(code, input.evidence, `staff-${Date.now()}`) : null;
     complaint.waitingForInfo = true;
     complaint.infoPrompt = note;
     complaint.infoRequestedAt = now;
-    if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
+    if (storedEvidence) {
       complaint.attachments.push({
-        evidence: input.evidence,
+        evidence: storedEvidence,
         source: `${user.role === 'admin' ? 'Admin' : 'Petugas'} · ${user.name || 'Petugas'}`,
         at: now,
         visibility,
@@ -225,9 +237,10 @@ async function applyStaffAction(code, input, user) {
   const currentStatus = complaint.log[complaint.log.length - 1]?.s ?? 0;
   const nextStatus = Number(input.status);
   if (!Number.isInteger(nextStatus) || (nextStatus !== -1 && nextStatus !== currentStatus + 1)) return null;
-  if (typeof input.evidence === 'string' && input.evidence.startsWith('data:image/jpeg;base64,') && input.evidence.length <= 2800000) {
+  const storedEvidence = input.evidence ? await storeEvidence(code, input.evidence, `staff-${Date.now()}`) : null;
+  if (storedEvidence) {
     complaint.attachments.push({
-      evidence: input.evidence,
+      evidence: storedEvidence,
       source: `${user.role === 'admin' ? 'Admin' : 'Petugas'} · ${user.name || 'Petugas'}`,
       at: now,
       visibility,
