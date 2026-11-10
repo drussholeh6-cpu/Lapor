@@ -10,7 +10,6 @@ const SESSION_FLAG = 'la-has-session';
 const THEME_KEY = 'la-theme';
 const SEEN_KEY = 'la-seen';
 const LOCATION_KEY = 'la-location';
-let captchaActivated = false;
 let addressLookupTimer;
 let addressLookupSequence = 0;
 let complaintEvidenceSelection = null;
@@ -98,26 +97,20 @@ function setLoading(button, loading, label = 'Memproses…') {
   }
 }
 
-function generateCaptchaChallenge() {
+async function loadMathChallenge() {
   const question = $('n-captcha-question');
-  const input = $('n-captcha');
-  if (!question || !input) return;
-
-  const first = Math.floor(Math.random() * 8) + 2;
-  const second = Math.floor(Math.random() * 8) + 2;
-  const answer = first + second;
-  question.textContent = `${first} + ${second} = ?`;
-  input.dataset.answer = String(answer);
-  input.value = '';
-}
-
-function validateCaptchaChallenge() {
-  const input = $('n-captcha');
-  if (!input) return true;
-
-  const answer = Number(input.value);
-  const expected = Number(input.dataset.answer);
-  return Number.isFinite(answer) && Number.isFinite(expected) && answer === expected;
+  if (!question) return;
+  try {
+    const challenge = await apiRequest('/challenge');
+    question.textContent = challenge.question;
+    $('n-captcha-token').value = challenge.token;
+    $('n-captcha-answer').value = '';
+    $('n-captcha-error').textContent = '';
+  } catch {
+    question.textContent = 'Soal verifikasi belum tersedia';
+    $('n-captcha-token').value = '';
+    $('n-captcha-error').textContent = 'Muat ulang halaman atau coba kembali sebentar lagi.';
+  }
 }
 
 async function reverseGeocodeLocation(latitude, longitude) {
@@ -507,27 +500,123 @@ function renderSlaGrid() {
 }
 
 function renderHome() {
-  const finished = tickets.filter((ticket) => baseStatus(ticket) === 3);
-  const active = tickets.filter((ticket) => !isClosed(ticket)).length;
-  const overdue = tickets.filter(isLate).length;
-  const average = averageFinish(tickets);
+  renderSlaGrid();
+}
 
-  const band = $('home-stats');
-  if (band) {
-    band.innerHTML = [
-      ['Aduan aktif', active, 'sedang ditangani'],
-      ['Selesai', finished.length, 'ditutup dengan hasil'],
-      ['Rata-rata selesai', `${average}`, 'hari penanganan'],
-      ['Melewati target', overdue, 'perlu perhatian'],
-    ]
-      .map(
-        ([label, value, note]) =>
-          `<div class="stat-card"><span>${escapeHtml(label)}</span><b>${escapeHtml(String(value))}</b><small>${escapeHtml(note)}</small></div>`,
-      )
-      .join('');
+let publicStatisticsData = null;
+let statisticsLoadPromise = null;
+
+function animatePublicStat(element, value, suffix = '') {
+  if (value === null || !Number.isFinite(Number(value))) {
+    element.textContent = '—';
+    delete element.dataset.value;
+    return;
   }
 
-  renderSlaGrid();
+  const target = Number(value);
+  const start = Number(element.dataset.value || 0);
+  if (reducedMotion() || start === target) {
+    element.textContent = `${target.toLocaleString('id-ID')}${suffix}`;
+    element.dataset.value = String(target);
+    return;
+  }
+
+  const begun = performance.now();
+  const duration = 650;
+  const frame = (now) => {
+    const progress = Math.min(1, (now - begun) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(start + (target - start) * eased);
+    element.textContent = `${current.toLocaleString('id-ID')}${suffix}`;
+    if (progress < 1) window.requestAnimationFrame(frame);
+    else element.dataset.value = String(target);
+  };
+  window.requestAnimationFrame(frame);
+}
+
+function renderPublicStatistics(data) {
+  const summary = $('public-stat-summary');
+  if (summary) {
+    const metrics = [
+      ['total', 'Total aduan', data.total, 'seluruh aduan tercatat', ''],
+      ['active', 'Sedang ditangani', data.active, 'status masih berjalan', ''],
+      ['timely', 'Selesai tepat waktu', data.onTimeRate, `${data.completed} aduan selesai dianalisis`, '%'],
+      ['completed', 'Aduan selesai', data.completed, 'menjadi dasar metrik waktu', ''],
+    ];
+    if (!summary.querySelector('[data-stat]')) {
+      summary.innerHTML = metrics.map(([key, label]) => (
+        `<article class="public-stat-card" data-stat="${key}"><span>${label}</span><b>—</b><small></small></article>`
+      )).join('');
+    }
+    metrics.forEach(([key, , value, note, suffix]) => {
+      const card = summary.querySelector(`[data-stat="${key}"]`);
+      animatePublicStat(card.querySelector('b'), value, suffix);
+      card.querySelector('small').textContent = note;
+    });
+  }
+
+  const chart = $('stats-monthly-chart');
+  if (chart) {
+    const max = Math.max(1, ...data.monthly.map((month) => month.count));
+    chart.setAttribute('aria-label', data.monthly.map((month) => `${month.label}: ${month.count} aduan`).join('. '));
+    chart.innerHTML = data.monthly.map((month) => {
+      const height = month.count ? Math.max(8, Math.round((month.count / max) * 100)) : 3;
+      const monthLabel = `${month.label} '${month.month.slice(2, 4)}`;
+      return `<div class="public-trend-column" title="${escapeHtml(monthLabel)}: ${month.count} aduan"><b>${month.count}</b><span class="public-trend-track"><i style="height:${height}%"></i></span><small>${escapeHtml(monthLabel)}</small></div>`;
+    }).join('');
+  }
+
+  const categories = $('stats-category-list');
+  if (categories) {
+    const categoryAverages = new Map(data.categoryAverages.map((item) => [item.category, item]));
+    const max = Math.max(1, ...data.categoryAverages.map((item) => item.averageDays));
+    categories.innerHTML = CATS.map((category) => {
+      const item = categoryAverages.get(category);
+      if (!item) {
+        return `<div class="public-metric-row"><div class="public-metric-label"><b>${escapeHtml(category)}</b><span>Belum ada data</span></div><div class="public-metric-track"><i style="width:0%"></i></div></div>`;
+      }
+      return `<div class="public-metric-row"><div class="public-metric-label"><b>${escapeHtml(category)}</b><span>${item.averageDays} hari <small>· ${item.count} aduan</small></span></div><div class="public-metric-track"><i style="width:${Math.max(4, item.averageDays / max * 100)}%"></i></div></div>`;
+    }).join('');
+  }
+
+  const units = $('stats-unit-list');
+  if (units) {
+    units.innerHTML = data.unitResponse.length
+      ? data.unitResponse.map((item, index) => `<li><span class="public-rank">${String(index + 1).padStart(2, '0')}</span><span class="public-unit-name"><b>${escapeHtml(item.unit)}</b><small>${item.count} aduan terverifikasi</small></span><strong>${item.averageHours < 24 ? `${item.averageHours} jam` : `${(item.averageHours / 24).toFixed(1)} hari`}</strong></li>`).join('')
+      : '<li class="stats-empty">Belum cukup data verifikasi untuk menampilkan peringkat.</li>';
+  }
+
+  const updated = $('stats-updated');
+  if (updated) {
+    const date = new Date(data.generatedAt);
+    updated.textContent = `Diperbarui ${new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(date)} WIB`;
+  }
+  renderStatisticsMap();
+}
+
+async function loadPublicStatistics() {
+  if (statisticsLoadPromise) return statisticsLoadPromise;
+  const updated = $('stats-updated');
+  statisticsLoadPromise = apiRequest('/statistics')
+    .then((data) => {
+      publicStatisticsData = data;
+      renderPublicStatistics(data);
+      ensureStatisticsMap();
+      return data;
+    })
+    .catch((error) => {
+      if (updated) {
+        updated.textContent = publicStatisticsData
+          ? 'Pembaruan otomatis tertunda; menampilkan data terakhir.'
+          : `Statistik belum dapat dimuat. ${error.message}`;
+      }
+      if (!publicStatisticsData) {
+        $('stats-monthly-chart').innerHTML = '<p class="stats-empty">Data tren belum tersedia.</p>';
+      }
+      return null;
+    })
+    .finally(() => { statisticsLoadPromise = null; });
+  return statisticsLoadPromise;
 }
 
 /* ─── Public board ─── */
@@ -1217,6 +1306,7 @@ function renderActivity(cases) {
 /* ─── Maps & geolocation ─── */
 let publicMap = null;
 let pickerMap = null;
+let statisticsMap = null;
 let pickerMarker = null;
 let userLocation = readStoredLocation();
 let locationRequest = null;
@@ -1336,7 +1426,7 @@ function makeMap(containerId, fallbackId) {
 }
 
 function applyMapTheme() {
-  [publicMap, pickerMap].forEach((map) => {
+  [publicMap, pickerMap, statisticsMap].forEach((map) => {
     if (!map) return;
     if (map._tile) map.removeLayer(map._tile);
     map._tile = addTileLayer(map);
@@ -1391,6 +1481,48 @@ function ensurePublicMap() {
       .catch(() => {
         /* Peta tetap memakai pusat default. */
       });
+  }
+}
+
+function ensureStatisticsMap() {
+  if (!statisticsMap) {
+    statisticsMap = makeMap('statistics-map', 'statistics-map-fallback');
+    if (statisticsMap) statisticsMap.markers = L.layerGroup().addTo(statisticsMap);
+  }
+  if (statisticsMap) {
+    renderStatisticsMap();
+    window.requestAnimationFrame(() => statisticsMap?.invalidateSize());
+  }
+}
+
+function renderStatisticsMap() {
+  if (!statisticsMap?.markers || !publicStatisticsData) return;
+  statisticsMap.markers.clearLayers();
+  const fallback = $('statistics-map-fallback');
+  if (!publicStatisticsData.heatmap.length) {
+    fallback.hidden = false;
+    fallback.textContent = 'Belum ada area dengan minimal 3 aduan untuk ditampilkan.';
+    const view = defaultCenter();
+    statisticsMap.setView(view.center, view.zoom);
+    return;
+  }
+  fallback.hidden = true;
+  const points = [];
+  publicStatisticsData.heatmap.forEach((cell) => {
+    points.push(cell.coordinates);
+    const radius = Math.min(26, 10 + Math.sqrt(cell.count) * 4);
+    L.circleMarker(cell.coordinates, {
+      radius,
+      color: '#b45309',
+      weight: 1,
+      fillColor: '#f97316',
+      fillOpacity: 0.36,
+    }).bindPopup(`<b>${cell.count} aduan</b><br>Area agregat`).addTo(statisticsMap.markers);
+  });
+  if (points.length) statisticsMap.fitBounds(points, { maxZoom: 14, padding: [28, 28] });
+  else {
+    const view = defaultCenter();
+    statisticsMap.setView(view.center, view.zoom);
   }
 }
 
@@ -1587,7 +1719,7 @@ function resetCompose() {
   }
   complaintEvidenceSelection = null;
   complaintEvidencePreviewSequence += 1;
-  closeCaptchaModal(false);
+  loadMathChallenge();
   const made = $('made');
   if (made) made.hidden = true;
   if ($('n-lat')) $('n-lat').value = '';
@@ -1601,16 +1733,6 @@ function resetCompose() {
     pickerMarker.remove();
     pickerMarker = null;
   }
-}
-
-function closeCaptchaModal(restoreFocus = true) {
-  $('captcha-modal').hidden = true;
-  captchaActivated = false;
-  $('n-captcha').disabled = true;
-  $('n-captcha').value = '';
-  $('n-captcha-question').textContent = '';
-  $('captcha-modal-error').textContent = '';
-  if (restoreFocus) $('submit-complaint')?.focus();
 }
 
 function renderMade(ticket, emailDelivery, recipientEmail) {
@@ -1720,24 +1842,12 @@ async function submitNewTicket(event) {
     return;
   }
 
-  const captchaInput = $('n-captcha');
-  if (!captchaActivated) {
-    captchaActivated = true;
-    generateCaptchaChallenge();
-    captchaInput.disabled = false;
-    $('captcha-modal-error').textContent = '';
-    $('captcha-modal').hidden = false;
-    window.requestAnimationFrame(() => captchaInput.focus());
+  const captchaToken = $('n-captcha-token').value;
+  const captchaAnswer = $('n-captcha-answer').value.trim();
+  if (!captchaToken || !captchaAnswer) {
+    $('n-captcha-error').textContent = 'Jawab soal matematika sebelum mengirim aduan.';
     return;
   }
-
-  if (!validateCaptchaChallenge()) {
-    $('captcha-modal-error').textContent = 'Jawaban belum tepat. Coba soal yang baru.';
-    generateCaptchaChallenge();
-    captchaInput.focus();
-    return;
-  }
-  closeCaptchaModal(false);
 
   let evidence = null;
   try {
@@ -1769,6 +1879,8 @@ async function submitNewTicket(event) {
     priority: $('n-severity').value,
     coordinates,
     evidence,
+    captchaToken,
+    captchaAnswer,
   };
 
   setLoading(submit, true, 'Mengirim aduan…');
@@ -1800,6 +1912,7 @@ async function submitNewTicket(event) {
       return;
     }
     error.textContent = apiError.message;
+    await loadMathChallenge();
     toast(apiError.message, 'error');
     return;
   } finally {
@@ -2370,7 +2483,10 @@ function tab(name) {
   window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
 
   if (name === 'lacak') ensurePublicMap();
-  if (name === 'buat') ensurePickerMap();
+  if (name === 'buat') {
+    ensurePickerMap();
+    loadMathChallenge();
+  }
   if (name === 'petugas') {
     setStaffView();
     if (currentSession()?.role === 'admin') renderStaffDirectory();
@@ -2487,11 +2603,6 @@ function bindEvents() {
   });
 
   $('f-new')?.addEventListener('submit', submitNewTicket);
-  $('confirm-captcha')?.addEventListener('click', () => $('f-new')?.requestSubmit());
-  $('cancel-captcha')?.addEventListener('click', () => closeCaptchaModal());
-  $('captcha-modal')?.addEventListener('click', (event) => {
-    if (event.target.dataset.closeCaptchaModal === 'true') closeCaptchaModal();
-  });
   $('f-login')?.addEventListener('submit', submitLogin);
   $('f-register-staff')?.addEventListener('submit', submitStaffRegistration);
   $('f-edit-staff')?.addEventListener('submit', submitStaffEdit);
@@ -2654,7 +2765,6 @@ function bindEvents() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       if (!$('image-preview-modal').hidden) closeEvidencePreview();
-      if (!$('captcha-modal').hidden) closeCaptchaModal();
       closeDeleteModal();
       closeStaffEdit();
       closeMenu();
@@ -2685,6 +2795,14 @@ async function initialize() {
 
   tickets = await loadPublicTickets();
   renderBoard();
+  ensureStatisticsMap();
+  loadPublicStatistics();
+  window.setInterval(() => {
+    if (!document.hidden) loadPublicStatistics();
+  }, 60_000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadPublicStatistics();
+  });
 
   if (hasSessionMarker()) {
     try {

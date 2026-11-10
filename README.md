@@ -10,6 +10,7 @@ Project ini cocok digunakan untuk instansi pemerintahan, kelurahan, kecamatan, a
 - Nomor pelacakan unik untuk setiap laporan
 - Proses perubahan status yang terdokumentasi dengan riwayat
 - Email konfirmasi dan notifikasi otomatis ke pelapor
+- Halaman statistik publik untuk tren aduan, SLA, kecepatan respons unit, dan peta agregat
 - Dashboard petugas dan admin dengan filter, statistik, dan ekspor laporan
 - Dukungan bukti foto seperti JPG, PNG, WebP, HEIC, HEIF
 - Role-based access untuk petugas dan admin
@@ -31,9 +32,11 @@ Dengan desain seperti ini, masyarakat tidak perlu login untuk melapor, namun tet
 
 ## Fitur utama
 
-### 1. Portal publik yang sederhana
+### 1. Portal publik dan statistik yang transparan
 - Halaman beranda menjelaskan alur penanganan
-- Menu utama: Beranda, Lacak aduan, Buat aduan, Masuk petugas
+- Statistik publik ditampilkan langsung di beranda bersama menu Lacak aduan dan Buat aduan
+- Statistik publik menampilkan tren bulanan, ketepatan waktu, rata-rata penyelesaian per kategori, ranking respons unit, dan peta agregat anonim
+- Area peta dan ranking hanya ditampilkan setelah memenuhi jumlah data minimum
 - Desain responsif dengan tema terang dan gelap
 - Pengguna dapat langsung masuk ke fitur pelacakan atau pembuatan aduan
 
@@ -183,6 +186,7 @@ BREVO_API_KEY=your-brevo-api-key
 SMTP_FROM_EMAIL=noreply@mail.badrussholeh.my.id
 SMTP_FROM_NAME=Lacak Aduan
 PUBLIC_APP_URL=http://localhost:3000
+CHALLENGE_SECRET=generate-a-long-random-secret-for-math-challenges
 ```
 
 Penjelasan variabel:
@@ -194,6 +198,7 @@ Penjelasan variabel:
 - `SMTP_FROM_EMAIL` — alamat pengirim email yang sudah terverifikasi di Brevo
 - `SMTP_FROM_NAME` — nama pengirim yang muncul di email
 - `PUBLIC_APP_URL` — domain publik aplikasi, penting agar link tracking email bisa dibuka oleh warga
+- `CHALLENGE_SECRET` — kunci acak privat untuk menandatangani soal matematika; bila kosong, server menggunakan `SUPABASE_SERVICE_ROLE_KEY`
 
 Catatan penting:
 - Jangan pernah commit file `.env` ke repository
@@ -209,6 +214,10 @@ Catatan penting:
 5. Bucket bukti foto dibuat publik agar warga dapat melihat bukti aduan melalui URL; unggah tetap dilakukan server dengan `SUPABASE_SERVICE_ROLE_KEY`
 6. Aduan baru menyimpan URL foto di JSONB, sementara file JPEG disimpan di Supabase Storage
 7. Data lama yang masih berisi `data:image/...;base64` perlu dimigrasikan ke bucket sebelum ukuran database dan respons daftar aduan ikut mengecil
+
+### Verifikasi matematika
+
+Form aduan memakai soal penjumlahan yang dibuat server. Token tantangan ditandatangani dengan HMAC, kedaluwarsa dalam lima menit, hanya bisa dipakai sekali, dan jawaban diperiksa di server. Batasi `CHALLENGE_SECRET` sebagai rahasia deployment; kunci acak panjang disarankan. Fitur ini tidak membutuhkan akun atau layanan CAPTCHA pihak ketiga. Soal aritmetika sederhana tetap dapat dijawab bot otomatis, jadi pembatasan pengiriman per IP juga tetap berlaku.
 
 File SQL ini berisi struktur dasar untuk menyimpan data aduan, termasuk field utama seperti kode, lokasi, deskripsi, email, status, log, dan metadata lain yang dibutuhkan aplikasi.
 

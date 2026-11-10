@@ -84,18 +84,6 @@
           </div>
         </div>
 
-        <aside class="hero-preview reveal" style="--delay: 120ms" aria-label="Contoh tampilan status aduan">
-          <div class="preview-top"><span>Contoh pelacakan</span><span class="preview-live"><i></i> Langsung</span></div>
-          <div class="preview-code">ADU-2610-014242</div>
-          <p class="preview-location">Perbaikan jalan <span>·</span> Jl. Melati</p>
-          <div class="preview-status">
-            <span class="preview-status-dot"></span>
-            <span><b>Sedang diproses</b><small>Tim pemeliharaan jalan</small></span>
-            <span class="preview-arrow" aria-hidden="true">↗</span>
-          </div>
-          <div class="preview-track" aria-hidden="true"><span class="complete"></span><span class="complete"></span><span class="current"></span><span></span></div>
-          <div class="preview-foot"><span>Masuk 9 hari lalu</span><span>Langkah 3 dari 4</span></div>
-        </aside>
       </div>
 
       <div class="feature-strip reveal" aria-label="Keunggulan layanan">
@@ -122,7 +110,61 @@
         </article>
       </div>
 
-      <div class="home-stats-band reveal" id="home-stats" aria-live="polite"></div>
+      <section class="home-block public-stat-section" aria-labelledby="public-statistics-title">
+        <header class="section-head reveal">
+          <div>
+            <p class="eyebrow muted"><i></i> Data layanan terbuka</p>
+            <h2 id="public-statistics-title">Kinerja layanan, terbuka untuk warga.</h2>
+          </div>
+          <div class="stats-live">
+            <span class="stats-live-indicator"><i aria-hidden="true"></i> LIVE · sinkron tiap 60 detik</span>
+            <p class="stats-updated" id="stats-updated" role="status" aria-live="polite">Memuat statistik…</p>
+          </div>
+        </header>
+
+        <div class="public-stat-grid" id="public-stat-summary" aria-live="off">
+          <div class="public-stat-card"><span>Total aduan</span><b>—</b><small>memuat data</small></div>
+          <div class="public-stat-card"><span>Sedang ditangani</span><b>—</b><small>memuat data</small></div>
+          <div class="public-stat-card"><span>Selesai tepat waktu</span><b>—</b><small>aduan selesai</small></div>
+          <div class="public-stat-card"><span>Aduan selesai</span><b>—</b><small>memuat data</small></div>
+        </div>
+
+        <div class="public-stat-layout">
+          <article class="public-stat-panel public-stat-panel-wide">
+            <header class="public-stat-panel-head">
+              <div><p class="eyebrow muted"><i></i> Volume laporan</p><h3>Tren aduan per bulan</h3></div>
+              <span class="stats-period">12 bulan terakhir</span>
+            </header>
+            <div id="stats-monthly-chart" class="public-trend-chart" role="img" aria-label="Grafik tren jumlah aduan per bulan"></div>
+          </article>
+
+          <article class="public-stat-panel">
+            <header class="public-stat-panel-head">
+              <div><p class="eyebrow muted"><i></i> Waktu penanganan</p><h3>Rata-rata sampai selesai</h3></div>
+            </header>
+            <p class="stats-explainer">Dihitung dari aduan berstatus selesai, berdasarkan kategori.</p>
+            <div id="stats-category-list" class="public-metric-list"></div>
+          </article>
+
+          <article class="public-stat-panel">
+            <header class="public-stat-panel-head">
+              <div><p class="eyebrow muted"><i></i> Respons unit</p><h3>Unit dengan respons tercepat</h3></div>
+            </header>
+            <p class="stats-explainer">Urutan berdasarkan rata-rata waktu dari aduan masuk sampai verifikasi pertama. Ditampilkan jika ada minimal 3 data.</p>
+            <ol id="stats-unit-list" class="public-unit-ranking"></ol>
+          </article>
+
+          <article class="public-stat-panel public-stat-panel-wide">
+            <header class="public-stat-panel-head">
+              <div><p class="eyebrow muted"><i></i> Sebaran wilayah</p><h3>Peta kepadatan aduan</h3></div>
+              <span class="map-tag">Area perkiraan</span>
+            </header>
+            <div class="map-frame public-heatmap-frame"><div id="statistics-map" aria-label="Peta kepadatan aduan berdasarkan wilayah"></div><p class="map-fallback" id="statistics-map-fallback" hidden></p></div>
+            <p class="stats-explainer stats-map-note">Lingkaran lebih besar berarti lebih banyak aduan. Titik menunjukkan area agregat, bukan alamat pelapor; area hanya ditampilkan jika memuat sedikitnya 3 aduan.</p>
+          </article>
+        </div>
+        <p class="public-stats-footnote">Persentase tepat waktu dihitung dari aduan selesai yang memenuhi target kategori dan prioritas; aduan ditolak tidak dihitung sebagai selesai. Statistik tidak menampilkan nama, email, nomor aduan, atau foto.</p>
+      </section>
 
       <section class="home-block">
         <header class="section-head reveal">
@@ -190,7 +232,6 @@
       </section>
     </section>
 
-    <!-- ══════════════ LACAK ══════════════ -->
     <section id="lacak" class="page" hidden>
       <header class="page-head reveal">
         <p class="eyebrow muted"><i></i> Pelacakan publik</p>
@@ -303,6 +344,12 @@
               </div>
             </div>
             <div class="full form-submit">
+              <div class="captcha-row" aria-label="Verifikasi matematika">
+                <span class="captcha-question" id="n-captcha-question">Memuat soal…</span>
+                <input id="n-captcha-answer" type="number" inputmode="numeric" min="0" max="30" step="1" placeholder="Jawaban" aria-label="Jawaban soal matematika">
+              </div>
+              <input id="n-captcha-token" type="hidden">
+              <p class="hint form-error" id="n-captcha-error" role="alert"></p>
               <button class="btn btn-dark btn-wide" type="submit" id="submit-complaint">Kirim aduan <span class="btn-arrow" aria-hidden="true">↗</span></button>
               <p class="hint">Nama, email, dan foto hanya diakses petugas; identitas tidak ditampilkan, titik peta publik dibulatkan.</p>
             </div>
@@ -575,31 +622,6 @@
       <span>Web design by TIM PEDEDE</span>
     </div>
   </footer>
-
-  <div id="captcha-modal" class="modal" hidden>
-    <div class="modal-backdrop" data-close-captcha-modal="true"></div>
-    <div class="modal-card captcha-modal-card" role="dialog" aria-modal="true" aria-labelledby="captcha-modal-title" aria-describedby="captcha-modal-description">
-      <span class="captcha-modal-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.2 2.9 7.7 7 9 4.1-1.3 7-4.8 7-9V6l-7-3Z" stroke="currentColor" stroke-width="1.7"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </span>
-      <div class="modal-header captcha-modal-header">
-        <div>
-          <span class="label-chip soft">Verifikasi keamanan</span>
-          <h2 id="captcha-modal-title">Satu langkah lagi.</h2>
-        </div>
-      </div>
-      <p id="captcha-modal-description">Jawab soal singkat ini untuk memastikan aduan dikirim oleh manusia.</p>
-      <div class="captcha-row captcha-modal-row">
-        <span class="captcha-question" id="n-captcha-question"></span>
-        <input id="n-captcha" type="number" disabled inputmode="numeric" min="0" step="1" placeholder="?" aria-label="Jawaban verifikasi keamanan" aria-describedby="captcha-modal-error">
-      </div>
-      <p class="captcha-modal-error" id="captcha-modal-error" role="status" aria-live="polite"></p>
-      <div class="modal-actions captcha-modal-actions">
-        <button type="button" class="btn btn-ghost" id="cancel-captcha">Batal</button>
-        <button type="button" class="btn btn-dark" id="confirm-captcha">Verifikasi &amp; kirim</button>
-      </div>
-    </div>
-  </div>
 
   <div id="delete-modal" class="modal" hidden>
     <div class="modal-backdrop" data-close-delete-modal="true"></div>

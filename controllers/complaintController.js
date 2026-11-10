@@ -1,6 +1,12 @@
 const complaintService = require('../services/complaintService');
 const complaintReportService = require('../services/complaintReportService');
 const emailService = require('../services/emailService');
+const publicStatisticsService = require('../services/publicStatisticsService');
+
+async function getPublicStatistics(req, res) {
+  res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  return res.json(await publicStatisticsService.getPublicStatistics());
+}
 
 async function listComplaints(req, res) {
   const complaints = await complaintService.listComplaints();
@@ -158,6 +164,7 @@ async function submitRating(req, res) {
 }
 
 module.exports = {
+  getPublicStatistics,
   createComplaint,
   deleteStaffComplaints,
   exportStaffComplaintReport,
