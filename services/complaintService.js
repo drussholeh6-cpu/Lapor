@@ -168,7 +168,28 @@ async function getStaffComplaintByCode(code, user) {
   if (!validCode(code)) return null;
   const complaint = await complaintModel.findComplaintByCode(String(code).toUpperCase());
   if (!complaint || (user.role !== 'admin' && complaint.unit !== user.unit)) return null;
-  return complaint;
+
+  const attachments = [];
+  const seenEvidence = new Set();
+  const addAttachment = (evidence, source, at, visibility = 'public') => {
+    if (typeof evidence !== 'string' || seenEvidence.has(evidence)) return;
+    seenEvidence.add(evidence);
+    attachments.push({ evidence, source, at, visibility });
+  };
+  addAttachment(complaint.evidence, 'Pelapor', complaint.at);
+  (Array.isArray(complaint.attachments) ? complaint.attachments : []).forEach((attachment) => {
+    addAttachment(
+      attachment.evidence,
+      attachment.source || 'Bukti penanganan',
+      attachment.at,
+      attachment.visibility || 'public',
+    );
+  });
+  (Array.isArray(complaint.log) ? complaint.log : []).forEach((entry) => {
+    addAttachment(entry.evidence, `Petugas · ${entry.by || 'Unit penanganan'}`, entry.at, entry.visibility || 'public');
+  });
+
+  return { ...complaint, attachments };
 }
 
 async function updateStaffComplaint(code, body, user) {

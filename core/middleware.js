@@ -17,6 +17,7 @@ function registerGlobalMiddleware(app) {
 
 function registerStaticFiles(app, publicDir) {
   app.use('/vendor/leaflet', require('express').static(path.dirname(require.resolve('leaflet'))));
+  app.use('/vendor/heic2any', require('express').static(path.dirname(require.resolve('heic2any'))));
   app.use(require('express').static(publicDir));
 }
 

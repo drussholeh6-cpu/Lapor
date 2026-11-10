@@ -291,12 +291,16 @@
               <p class="hint form-error" id="n-err" role="alert"></p>
             </div>
             <div class="field full">
-              <label for="n-evidence">Foto bukti <span class="optional">(opsional, maks. 2 MB)</span></label>
+              <label for="n-evidence">Foto bukti <span class="optional">(opsional, maks. 10 MB sebelum dikompres)</span></label>
               <label class="file-drop" for="n-evidence">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-                <span><b>Pilih foto bukti</b><small id="n-file-label">JPG/PNG, otomatis dikompres</small></span>
-                <input id="n-evidence" type="file" accept="image/*">
+                <span><b>Pilih foto bukti</b><small id="n-file-label">JPG/PNG/WebP/HEIC, otomatis dikompres</small></span>
+                <input id="n-evidence" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif">
               </label>
+              <div id="n-evidence-preview" class="evidence-preview" hidden>
+                <img id="n-evidence-preview-image" alt="Pratinjau foto bukti yang akan dikirim">
+                <p id="n-evidence-preview-status" class="hint" role="status"></p>
+              </div>
             </div>
             <div class="full form-submit">
               <button class="btn btn-dark btn-wide" type="submit" id="submit-complaint">Kirim aduan <span class="btn-arrow" aria-hidden="true">↗</span></button>
@@ -505,8 +509,8 @@
                 <p class="hint" id="s-visibility-hint">Status selalu terlihat warga. Catatan internal hanya tampil di ruang petugas. Permintaan informasi selalu ditampilkan ke warga.</p>
               </div>
               <div class="field full">
-                <label for="staff-evidence">Bukti penanganan <span class="optional">(opsional, maks. 2 MB)</span></label>
-                <input id="staff-evidence" type="file" accept="image/*">
+                <label for="staff-evidence">Bukti penanganan <span class="optional">(opsional, maks. 10 MB sebelum dikompres)</span></label>
+                <input id="staff-evidence" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif">
                 <p class="hint">Foto mengikuti visibilitas catatan. Bukti internal hanya terlihat petugas; bukti publik dapat dilihat warga saat melacak.</p>
               </div>
               <div class="full staff-actions">
@@ -656,6 +660,7 @@
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
 
   <script src="/vendor/leaflet/leaflet.js" defer></script>
+  <script src="/vendor/heic2any/heic2any.min.js" defer></script>
   <script src="script.js" defer></script>
 </body>
 </html>

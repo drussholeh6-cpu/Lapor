@@ -13,6 +13,8 @@ const LOCATION_KEY = 'la-location';
 let captchaActivated = false;
 let addressLookupTimer;
 let addressLookupSequence = 0;
+let complaintEvidenceSelection = null;
+let complaintEvidencePreviewSequence = 0;
 
 const CATS = [
   'Jalan rusak',
@@ -1509,14 +1511,30 @@ async function locateUser() {
 /* ─── Evidence ─── */
 async function compressImage(file) {
   if (!file) return null;
-  if (!file.type.startsWith('image/')) throw new Error('Pilih berkas gambar.');
-  if (file.size > 2 * 1024 * 1024) throw new Error('Ukuran foto maksimal 2 MB.');
+  const isHeic = /^image\/hei[cf](?:-sequence)?$/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+  if (!isHeic && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    throw new Error('Format foto belum didukung. Pilih JPG, PNG, WebP, atau HEIC.');
+  }
+  if (file.size > 10 * 1024 * 1024) throw new Error('Ukuran foto maksimal 10 MB sebelum dikompres.');
+
+  let imageFile = file;
+  if (isHeic) {
+    if (typeof window.heic2any !== 'function') {
+      throw new Error('Konverter HEIC belum siap. Muat ulang halaman atau pilih foto JPG/PNG.');
+    }
+    const converted = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+    const convertedBlob = Array.isArray(converted) ? converted[0] : converted;
+    if (!(convertedBlob instanceof Blob)) throw new Error('Foto HEIC gagal dikonversi.');
+    imageFile = new File([convertedBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), {
+      type: 'image/jpeg',
+    });
+  }
 
   const source = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(imageFile);
   });
 
   const image = await new Promise((resolve, reject) => {
@@ -1526,27 +1544,38 @@ async function compressImage(file) {
     img.src = source;
   });
 
-  const scale = Math.min(1, 1280 / Math.max(image.width, image.height));
+  let scale = Math.min(1, 1280 / Math.max(image.width, image.height));
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(image.width * scale));
-  canvas.height = Math.max(1, Math.round(image.height * scale));
   const context = canvas.getContext('2d');
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  if (!context) throw new Error('Foto gagal diproses.');
 
-  const blob = await new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (result) => (result ? resolve(result) : reject(new Error('Foto gagal diproses.'))),
-      'image/jpeg',
-      0.78,
-    );
-  });
+  for (let resizeAttempt = 0; resizeAttempt < 4; resizeAttempt += 1) {
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
-    reader.readAsDataURL(blob);
-  });
+    for (let quality = 0.78; quality >= 0.48; quality -= 0.1) {
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (result) => (result ? resolve(result) : reject(new Error('Foto gagal diproses.'))),
+          'image/jpeg',
+          quality,
+        );
+      });
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
+        reader.readAsDataURL(blob);
+      });
+
+      if (typeof dataUrl === 'string' && dataUrl.length <= 2_800_000) return dataUrl;
+    }
+
+    scale *= 0.8;
+  }
+
+  throw new Error('Foto terlalu besar untuk dikirim. Pilih gambar lain atau perkecil foto.');
 }
 
 /* ─── Compose ─── */
@@ -1556,13 +1585,18 @@ function resetCompose() {
     form.reset();
     form.hidden = false;
   }
+  complaintEvidenceSelection = null;
+  complaintEvidencePreviewSequence += 1;
   closeCaptchaModal(false);
   const made = $('made');
   if (made) made.hidden = true;
   if ($('n-lat')) $('n-lat').value = '';
   if ($('n-lng')) $('n-lng').value = '';
   if ($('n-err')) $('n-err').textContent = '';
-  if ($('n-file-label')) $('n-file-label').textContent = 'JPG/PNG, otomatis dikompres';
+  if ($('n-file-label')) $('n-file-label').textContent = 'JPG/PNG/WebP/HEIC, otomatis dikompres';
+  if ($('n-evidence-preview')) $('n-evidence-preview').hidden = true;
+  if ($('n-evidence-preview-image')) $('n-evidence-preview-image').removeAttribute('src');
+  if ($('n-evidence-preview-status')) $('n-evidence-preview-status').textContent = '';
   if (pickerMarker) {
     pickerMarker.remove();
     pickerMarker = null;
@@ -1707,7 +1741,11 @@ async function submitNewTicket(event) {
 
   let evidence = null;
   try {
-    evidence = await compressImage($('n-evidence').files[0]);
+    const file = $('n-evidence').files[0];
+    const selection = complaintEvidenceSelection;
+    evidence = file
+      ? await (selection?.file === file ? selection.promise : compressImage(file))
+      : null;
   } catch (reason) {
     error.textContent = reason.message;
     return;
@@ -2443,7 +2481,38 @@ function bindEvents() {
   $('n-evidence')?.addEventListener('change', (event) => {
     const file = event.target.files?.[0];
     const label = $('n-file-label');
-    if (label) label.textContent = file ? file.name : 'JPG/PNG, otomatis dikompres';
+    const preview = $('n-evidence-preview');
+    const image = $('n-evidence-preview-image');
+    const status = $('n-evidence-preview-status');
+    const sequence = ++complaintEvidencePreviewSequence;
+    complaintEvidenceSelection = null;
+    if (label) label.textContent = file ? file.name : 'JPG/PNG/WebP/HEIC, otomatis dikompres';
+    if (!file) {
+      if (preview) preview.hidden = true;
+      if (image) image.removeAttribute('src');
+      if (status) status.textContent = '';
+      return;
+    }
+
+    if (preview) preview.hidden = false;
+    if (image) image.removeAttribute('src');
+    if (status) {
+      status.classList.remove('form-error');
+      status.textContent = 'Menyiapkan pratinjau foto…';
+    }
+    const promise = compressImage(file);
+    complaintEvidenceSelection = { file, promise };
+    promise.then((evidence) => {
+      if (sequence !== complaintEvidencePreviewSequence) return;
+      if (image) image.src = evidence;
+      if (status) status.textContent = 'Pratinjau foto yang akan dikirim.';
+    }).catch((error) => {
+      if (sequence !== complaintEvidencePreviewSequence) return;
+      if (status) {
+        status.classList.add('form-error');
+        status.textContent = error.message;
+      }
+    });
   });
 
   $('f-staff')?.addEventListener('submit', submitStaffAction);

@@ -1197,6 +1197,11 @@ textarea { min-height: 130px; resize: vertical; line-height: 1.6; }
 .file-drop b { font-size: 13px; }
 .file-drop small { margin-top: 2px; color: var(--muted); font-size: 11.5px; }
 .file-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.evidence-preview { display: flex; align-items: flex-start; gap: 12px; margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-xs); background: var(--surface); }
+.evidence-preview[hidden] { display: none; }
+.evidence-preview img { width: min(100%, 180px); max-height: 150px; border-radius: 6px; object-fit: cover; }
+.evidence-preview p { margin: 4px 0 0; }
+.evidence-preview .form-error { color: var(--red); font-weight: 700; }
 .form-submit { display: grid; gap: 10px; }
 .form-submit .hint { margin: 0; }
 .form-submit .hint::before { content: "Privasi: "; color: var(--ink); font-weight: 700; }
