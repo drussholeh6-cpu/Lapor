@@ -297,6 +297,36 @@ main.shell { padding-block: 24px 48px; }
 
 .header-tools { display: flex; align-items: center; gap: 10px; flex: none; }
 
+.pwa-install-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--border));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--brand) 12%, var(--surface));
+  color: var(--brand);
+  font: 700 12px/1 var(--font-body);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+.pwa-install-btn:hover {
+  background: var(--brand);
+  color: #ffffff;
+  border-color: var(--brand);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+.pwa-install-btn svg {
+  width: 15px;
+  height: 15px;
+}
+@media (max-width: 680px) {
+  .pwa-install-btn span { display: none; }
+  .pwa-install-btn { padding: 9px; }
+}
+
 .live-clock {
   display: flex;
   align-items: center;

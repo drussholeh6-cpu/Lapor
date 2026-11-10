@@ -2794,9 +2794,47 @@ function closeEvidencePreview() {
   }
 }
 
+/* ─── PWA (Progressive Web App) ─── */
+let deferredInstallPrompt = null;
+
+function setupPWA() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('[PWA] Service Worker registration failed:', err);
+      });
+    });
+  }
+
+  const installBtn = $('pwa-install-btn');
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if (installBtn) installBtn.hidden = false;
+  });
+
+  installBtn?.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    installBtn.hidden = true;
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice?.outcome === 'accepted') {
+      toast('Aplikasi berhasil dipasang di perangkat Anda.', 'success');
+    }
+    deferredInstallPrompt = null;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    if (installBtn) installBtn.hidden = true;
+    deferredInstallPrompt = null;
+    toast('Terima kasih telah memasang PantauKota.', 'success');
+  });
+}
+
 /* ─── Init ─── */
 async function initialize() {
   setupTheme();
+  setupPWA();
   startLiveClock();
 
   $('n-cat').innerHTML = CATS.map((category) => `<option>${escapeHtml(category)}</option>`).join('');

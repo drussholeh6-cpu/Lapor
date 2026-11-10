@@ -1,418 +1,421 @@
 # Lacak Aduan
 
-Lacak Aduan adalah aplikasi web pelaporan masyarakat yang memungkinkan warga mengirim aduan, mendapatkan nomor pelacakan, dan memantau perkembangan penanganan secara transparan tanpa perlu membuat akun. Platform ini juga menyediakan panel petugas dan admin untuk memverifikasi, memperbarui status, menolak aduan, dan mengekspor laporan dalam format Excel.
+## Deskripsi Proyek
 
-Project ini cocok digunakan untuk instansi pemerintahan, kelurahan, kecamatan, atau layanan publik yang membutuhkan sistem pengaduan yang cepat, rapi, dan mudah diakses oleh masyarakat.
+Lacak Aduan adalah sistem pengaduan masyarakat berbasis web yang dirancang untuk memfasilitasi proses pelaporan, pelacakan, dan penanganan aduan secara terstruktur dan transparan. Aplikasi ini memungkinkan warga untuk mengirimkan laporan terkait kondisi lingkungan, fasilitas publik, layanan pemerintahan, atau permasalahan sosial yang membutuhkan tindak lanjut dari unit terkait.
 
-## Ringkasan singkat
+Sistem ini dirancang untuk mendukung dua pihak utama:
 
-- Public portal untuk warga mengajukan aduan
-- Nomor pelacakan unik untuk setiap laporan
-- Proses perubahan status yang terdokumentasi dengan riwayat
-- Email konfirmasi dan notifikasi otomatis ke pelapor
-- Halaman statistik publik untuk tren aduan, SLA, kecepatan respons unit, dan peta agregat
-- Dashboard petugas dan admin dengan filter, statistik, dan ekspor laporan
-- Dukungan bukti foto seperti JPG, PNG, WebP, HEIC, HEIF
-- Role-based access untuk petugas dan admin
-- Teknologi utama: Node.js + Express + Supabase + ExcelJS + Brevo
+- Warga atau masyarakat umum sebagai pelapor
+- Petugas atau administrator sebagai pihak yang memproses dan menindaklanjuti laporan
 
-## Fokus website
+Dengan arsitektur berbasis Node.js dan Supabase, aplikasi ini dapat digunakan sebagai solusi pengelolaan aduan yang aman, terukur, dan mudah dikembangkan untuk kebutuhan organisasi pemerintahan atau layanan publik.
 
-Website ini dirancang sesuai dengan alur layanan pengaduan modern yang umum digunakan di layanan publik:
+## Tujuan
 
-1. Warga membuka halaman beranda
-2. Memilih menu “Buat aduan”
-3. Mengisi kategori, lokasi, deskripsi, nama, email, serta bukti foto
-4. Sistem membuat aduan baru dengan nomor pelacakan
-5. Pelapor menerima konfirmasi email berisi tautan tracking
-6. Petugas memeriksa aduan dan memperbarui status
-7. Warga dapat melihat perkembangan status, memberi balasan, dan memberi rating
+Tujuan utama dari aplikasi ini adalah:
 
-Dengan desain seperti ini, masyarakat tidak perlu login untuk melapor, namun tetap bisa memantau perkembangan aduan mereka lewat kode pelacakan.
+- memberikan kanal pengaduan yang mudah diakses oleh masyarakat
+- memastikan setiap aduan memiliki identitas unik dan dapat dilacak
+- memudahkan petugas dalam memantau status aduan dari tahap awal hingga selesai
+- meningkatkan transparansi proses penanganan aduan kepada publik
+- meminimalkan kesenjangan komunikasi antara warga, petugas, dan unit penanganan
 
-## Fitur utama
+## Fitur Utama
 
-### 1. Portal publik dan statistik yang transparan
-- Halaman beranda menjelaskan alur penanganan
-- Statistik publik ditampilkan langsung di beranda bersama menu Lacak aduan dan Buat aduan
-- Statistik publik menampilkan tren bulanan, ketepatan waktu, rata-rata penyelesaian per kategori, ranking respons unit, dan peta agregat anonim
-- Area peta dan ranking hanya ditampilkan setelah memenuhi jumlah data minimum
-- Desain responsif dengan tema terang dan gelap
-- Pengguna dapat langsung masuk ke fitur pelacakan atau pembuatan aduan
+- Formulir pengaduan publik tanpa perlu login akun
+- Pembuatan nomor aduan unik untuk setiap laporan
+- Pelacakan aduan berdasarkan kode aduan dan email pelapor
+- Dashboard petugas untuk melihat daftar aduan masuk
+- Akses berbasis peran (`admin` dan `petugas`)
+- Pembaruan status aduan oleh petugas dan pemberitahuan kepada pelapor
+- Notifikasi email otomatis untuk konfirmasi penerimaan dan update status
+- Statistik publik mengenai jumlah aduan, tren, dan unit penanganan
+- Export data aduan ke format Excel
+- Integrasi dengan peta untuk menampilkan lokasi kejadian atau laporan
+- Penyimpanan bukti pendukung aduan pada storage Supabase
 
-### 2. Pelaporan tanpa akun
-- Warga tidak perlu mendaftar untuk membuat aduan
-- Form pengaduan mencakup:
-  - kategori masalah
-  - lokasi / alamat
-  - deskripsi aduan
-  - nama dan email kontak
-  - prioritas aduan
-  - foto bukti
-- Setiap aduan akan mendapatkan kode unik seperti `ADU-xxxx`
+## Alur Proses Bisnis
 
-### 3. Pelacakan aduan transparan
-- Pelapor dapat mengecek status aduan berdasarkan nomor pelacakan
-- Riwayat perubahan status ditampilkan dengan catatan singkat
-- Warga dapat melakukan balasan/respon bila diminta petugas
-- Pelapor dapat menilai kualitas layanan setelah penanganan selesai
+### 1. Pelapor
 
-### 4. Sistem status yang jelas
-Status aduan dapat diperbarui oleh petugas/admin dengan alur seperti:
-- masuk
-- diverifikasi
-- sedang diproses
-- menunggu informasi tambahan
-- ditolak
-- selesai
+1. Warga membuka halaman utama aplikasi.
+2. Mengisi formulir aduan dengan data seperti kategori, lokasi, deskripsi, dan kontak.
+3. Sistem menyimpan laporan dan menghasilkan kode aduan unik.
+4. Email konfirmasi dikirimkan ke pelapor.
+5. Pelapor dapat memantau perkembangan aduan melalui kode aduan dan email yang didaftarkan.
 
-Saat aduan ditolak, alasan penolakan wajib diisi dan tidak bisa disembunyikan dari warga.
+### 2. Petugas
 
-### 5. Dashboard petugas dan admin
-Dashboard menyediakan fitur berikut:
-- daftar aduan per unit/instansi
-- filter tanggal dan wilayah
-- grafik tren pengaduan
-- riwayat perubahan aduan
-- notifikasi aduan baru otomatis
-- ekspor laporan ke Excel (.xlsx)
-- update status dan catatan penanganan
-- akses terbatas sesuai role pengguna
+1. Petugas masuk ke area internal menggunakan akun yang terdaftar.
+2. Sistem menampilkan daftar aduan yang masuk dan siap ditangani.
+3. Petugas dapat meninjau detail laporan, memperbarui status, dan menambahkan catatan tindak lanjut.
+4. Jika diperlukan, sistem mengirim notifikasi email kepada pelapor terkait perubahan status.
+5. Data aduan dapat diekspor untuk kebutuhan laporan dan evaluasi performa.
 
-### 6. Email notifikasi otomatis
-- Pelapor menerima email konfirmasi pendaftaran aduan
-- Pemberitahuan dikirim ketika status berubah
-- Tautan di email membawa langsung ke halaman tracking aduan tanpa login
-- Jika pengiriman email gagal, sistem tetap menyimpan aduan dan memberi opsi kirim ulang
+### 3. Admin
 
-### 7. Dukungan foto bukti
-- Mendukung format JPG, PNG, WebP, HEIC, HEIF
-- Ukuran foto dibatasi dan diproses dengan cara aman
-- HEIC/HEIF dikonversi ke JPEG di browser sebelum dikirim
+1. Admin memiliki akses lebih luas dibanding petugas biasa.
+2. Dapat mengelola akun petugas, melakukan perubahan peran, serta memastikan kelengkapan struktur organisasi.
+3. Memastikan kebijakan dan otorisasi dalam sistem berjalan sesuai peraturan yang berlaku.
 
-### 8. Keamanan dan kontrol akses
-- Route admin dan staff dibatasi dengan middleware otorisasi
-- Variabel environment disimpan di `.env` lokal dan platform deployment
-- Service role key hanya digunakan di server/backend
-- API public dilindungi rate limiter terhadap spam atau request berlebihan
+## Arsitektur Aplikasi
 
-## Teknologi yang digunakan
+Aplikasi ini dibangun dengan pola modular yang memisahkan concern secara jelas, antara lain:
 
-| Area | Teknologi |
-|---|---|
-| Runtime | Node.js 20+ |
-| Framework backend | Express.js |
-| Database & auth | Supabase |
-| Frontend | HTML, CSS, JavaScript, Leaflet |
-| Laporan Excel | ExcelJS |
-| Email | Brevo API |
-| Middleware keamanan | Helmet, express-rate-limit |
-| Deployment | Vercel-ready |
+- `routes/` untuk mendefinisikan endpoint HTTP
+- `controllers/` untuk menangani request dan response
+- `services/` untuk logika bisnis dan integrasi eksternal
+- `config/` untuk konfigurasi layanan seperti Supabase
+- `core/` untuk inisialisasi aplikasi, middleware, dan error handling
+- `middleware/` untuk autentikasi dan validasi request
+- `utils/` untuk helper dan fungsi pendukung
+- `public/` untuk frontend statis yang dapat diakses pengguna
+- `database/` untuk schema database dan migrasi awal
+- `scripts/` untuk tugas administratif dan utilitas operasional
 
-## Struktur project
+## Teknologi yang Digunakan
+
+- Node.js 20+
+- Express.js
+- Supabase
+  - Database PostgreSQL
+  - Authentication
+  - Storage
+- Brevo (email delivery service)
+- Leaflet
+- ExcelJS
+- dotenv
+- Helmet
+- express-rate-limit
+
+## Struktur Direktori
 
 ```text
-Lapor-main/
-├─ .env.example
-├─ .env.vercel.example
+Lapor/
 ├─ app.js
-├─ package.json
 ├─ server.js
-├─ README.md
+├─ package.json
 ├─ vercel.json
-├─ api/
-│  └─ [...path].js
-├─ config/
-│  ├─ firebaseAdmin.js
-│  └─ supabase.js
-├─ controllers/
-│  ├─ authController.js
-│  └─ complaintController.js
-├─ core/
-│  ├─ appFactory.js
-│  └─ errors.js
-│  └─ middleware.js
-├─ database/
-│  └─ supabase.sql
-├─ middleware/
-│  └─ staffAuth.js
-├─ models/
-│  └─ complaintModel.js
-├─ public/
+├─ README.md
+├─ public/                         # antarmuka frontend publik
 │  ├─ index.html
 │  ├─ script.js
-│  └─ style.css
+│  ├─ style.css
 ├─ routes/
 │  ├─ authRoutes.js
 │  ├─ complaintRoutes.js
 │  └─ index.js
+├─ controllers/
+│  ├─ authController.js
+│  └─ complaintController.js
+├─ services/
+│  ├─ authService.js
+│  ├─ complaintService.js
+│  ├─ complaintReportService.js
+│  ├─ emailService.js
+│  └─ publicStatisticsService.js
+├─ models/
+│  └─ complaintModel.js
+├─ config/
+│  ├─ firebaseAdmin.js
+│  └─ supabase.js
+├─ core/
+│  ├─ appFactory.js
+│  ├─ errors.js
+│  └─ middleware.js
+├─ middleware/
+│  ├─ mathChallenge.js
+│  └─ staffAuth.js
+├─ utils/
+│  └─ validators.js
 ├─ scripts/
 │  ├─ createAdmin.ps1
 │  ├─ migrateFirebaseToSupabase.js
 │  ├─ setStaffClaims.js
-│  └─ testApi.js
-├─ services/
-│  ├─ authService.js
-│  ├─ complaintReportService.js
-│  ├─ complaintService.js
-│  ├─ emailService.js
-│  └─ complaintReportService.js
-├─ utils/
-│  └─ validators.js
-└─ ...
+│  ├─ testApi.js
+├─ database/
+│  └─ supabase.sql
+├─ tests/
+│  └─ publicStatistics.test.js
+└─ .env.example (jika digunakan)
 ```
 
-## Persyaratan sistem
+## Persyaratan Sistem
 
-Sebelum menjalankan aplikasi, pastikan Anda sudah menyiapkan:
+Sebelum menjalankan aplikasi, pastikan perangkat Anda sudah memiliki:
 
-- Node.js versi 20 atau lebih baru
-- npm atau pnpm
-- Akun Supabase
-- API key Brevo untuk pengiriman email
-- Akses ke platform deployment bila ingin dipublikasikan
+- Node.js versi 20 atau lebih tinggi
+- npm atau package manager yang kompatibel
+- Akun Supabase aktif
+- Koneksi internet untuk mengakses layanan eksternal seperti email dan Supabase
+- Akses ke penyimpanan dan konfigurasi environment di server atau local development
 
-## Setup environment
+## Setup Environment
 
-Salin file `.env.example` menjadi `.env` dan sesuaikan nilainya:
+Buat file `.env` di root project dan sesuaikan nilainya dengan konfigurasi lingkungan Anda.
 
 ```env
-NODE_ENV=development
 PORT=3000
+NODE_ENV=development
+
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-BREVO_API_KEY=your-brevo-api-key
-SMTP_FROM_EMAIL=noreply@mail.badrussholeh.my.id
-SMTP_FROM_NAME=Lacak Aduan
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
 PUBLIC_APP_URL=http://localhost:3000
-CHALLENGE_SECRET=generate-a-long-random-secret-for-math-challenges
+BREVO_API_KEY=your_brevo_api_key
+SMTP_FROM_EMAIL=no-reply@domain.com
+SMTP_FROM_NAME=Lacak Aduan
 ```
 
-Penjelasan variabel:
+### Penjelasan Variabel
 
-- `SUPABASE_URL` — URL project Supabase Anda
-- `SUPABASE_ANON_KEY` — key untuk operasi publik / client
-- `SUPABASE_SERVICE_ROLE_KEY` — key server-side yang digunakan untuk operasi admin dan internal
-- `BREVO_API_KEY` — API key untuk pengiriman email otomatis
-- `SMTP_FROM_EMAIL` — alamat pengirim email yang sudah terverifikasi di Brevo
-- `SMTP_FROM_NAME` — nama pengirim yang muncul di email
-- `PUBLIC_APP_URL` — domain publik aplikasi, penting agar link tracking email bisa dibuka oleh warga
-- `CHALLENGE_SECRET` — kunci acak privat untuk menandatangani soal matematika; bila kosong, server menggunakan `SUPABASE_SERVICE_ROLE_KEY`
+- `PORT`: port aplikasi yang digunakan oleh Express
+- `NODE_ENV`: lingkungan runtime (`development`, `production`, dll.)
+- `SUPABASE_URL`: URL project Supabase
+- `SUPABASE_ANON_KEY`: kunci anon untuk akses publik terbatas
+- `SUPABASE_SERVICE_ROLE_KEY`: kunci server-side yang digunakan untuk operasi admin dan internal
+- `PUBLIC_APP_URL`: base URL aplikasi yang digunakan dalam tautan email dan notifikasi
+- `BREVO_API_KEY`: API key untuk layanan email Brevo
+- `SMTP_FROM_EMAIL`: alamat email pengirim notifikasi
+- `SMTP_FROM_NAME`: nama pengirim yang akan tampil pada email
 
-Catatan penting:
-- Jangan pernah commit file `.env` ke repository
-- `SUPABASE_SERVICE_ROLE_KEY` hanya dipakai di sisi server
-- `PUBLIC_APP_URL` harus mengarah ke domain publik yang dapat diakses warga, bukan hanya localhost saat deployment produksi
+## Langkah Instalasi
 
-## Setup database Supabase
+### 1. Clone Repositori
 
-1. Buat project baru di Supabase
-2. Buka SQL Editor di dashboard Supabase
-3. Jalankan script yang ada di `database/supabase.sql`
-4. Pastikan tabel `complaints` dan bucket `complaint-evidence` berhasil dibuat
-5. Bucket bukti foto dibuat publik agar warga dapat melihat bukti aduan melalui URL; unggah tetap dilakukan server dengan `SUPABASE_SERVICE_ROLE_KEY`
-6. Aduan baru menyimpan URL foto di JSONB, sementara file JPEG disimpan di Supabase Storage
-7. Data lama yang masih berisi `data:image/...;base64` perlu dimigrasikan ke bucket sebelum ukuran database dan respons daftar aduan ikut mengecil
-
-### Verifikasi matematika
-
-Form aduan memakai soal penjumlahan yang dibuat server. Token tantangan ditandatangani dengan HMAC, kedaluwarsa dalam lima menit, hanya bisa dipakai sekali, dan jawaban diperiksa di server. Batasi `CHALLENGE_SECRET` sebagai rahasia deployment; kunci acak panjang disarankan. Fitur ini tidak membutuhkan akun atau layanan CAPTCHA pihak ketiga. Soal aritmetika sederhana tetap dapat dijawab bot otomatis, jadi pembatasan pengiriman per IP juga tetap berlaku.
-
-File SQL ini berisi struktur dasar untuk menyimpan data aduan, termasuk field utama seperti kode, lokasi, deskripsi, email, status, log, dan metadata lain yang dibutuhkan aplikasi.
-
-## Menyiapkan akun petugas dan admin
-
-Akun staff perlu dibuat di Supabase Authentication. Setelah user dibuat, isi metadata role/unit berdasarkan kebutuhan.
-
-Contoh role:
-- `petugas`
-- `admin`
-
-Contoh metadata:
-- `app_metadata.role = petugas`
-- `app_metadata.unit = Seksi Pemeliharaan Jalan`
-
-Gunakan script berikut untuk memberi metadata claim dari environment variable:
-
-```powershell
-$env:STAFF_EMAIL = "petugas@instansi.go.id"
-$env:STAFF_ROLE = "petugas"
-$env:STAFF_UNIT = "Seksi Pemeliharaan Jalan"
-$env:STAFF_NAME = "Petugas Jalan"
-npm run staff:claims
+```bash
+git clone <repository-url>
+cd Lapor
 ```
 
-Untuk admin:
-
-```powershell
-$env:STAFF_EMAIL = "admin@instansi.go.id"
-$env:STAFF_ROLE = "admin"
-$env:STAFF_NAME = "Admin Kelurahan"
-npm run staff:claims
-```
-
-Catatan:
-- `STAFF_UNIT` tidak diperlukan untuk role admin
-- Pastikan email staff sudah terdaftar di Supabase Auth
-
-## Menjalankan aplikasi lokal
-
-Install dependency:
+### 2. Install Dependency
 
 ```bash
 npm install
 ```
 
-Jalankan server:
+### 3. Konfigurasi Environment
 
-```bash
-npm start
+Siapkan file `.env` berdasarkan contoh variabel di atas, kemudian sesuaikan dengan nilai environment Anda.
+
+### 4. Setup Database Supabase
+
+Import file SQL berikut ke project Supabase Anda:
+
+```text
+database/supabase.sql
 ```
 
-Mode development dengan watch:
+File SQL tersebut berfungsi untuk:
+
+- membuat tabel aduan (`complaints`)
+- membuat tabel profil petugas (`staff_profiles`)
+- menyiapkan trigger `updated_at`
+- mengatur bucket storage untuk bukti aduan
+- membuat policy akses publik terhadap file bukti
+
+### 5. Jalankan Aplikasi
+
+Untuk mode development:
 
 ```bash
 npm run dev
 ```
 
-Buka browser ke:
+Untuk mode production:
+
+```bash
+npm start
+```
+
+Aplikasi default akan berjalan pada:
 
 ```text
 http://localhost:3000
 ```
 
-## Alur penggunaan aplikasi
+## Perintah yang Tersedia
 
-### Sebagai warga
-1. Buka halaman utama
-2. Klik tombol “Buat aduan baru”
-3. Isi formulir aduan:
-   - kategori
-   - lokasi
-   - keterangan masalah
-   - nama dan email
-   - bukti foto (opsional namun sangat disarankan)
-4. Submit aduan
-5. Sistem akan menyimpan dan mengirimkan nomor aduan ke email Anda
-6. Gunakan nomor pelacakan untuk mengecek perkembangan aduan
-
-### Sebagai petugas/admin
-1. Masuk ke panel petugas
-2. Lihat daftar aduan yang masuk
-3. Filter berdasarkan rentang tanggal atau wilayah
-4. Verifikasi aduan, buat update status, atau minta informasi tambahan
-5. Jika perlu, tolak aduan dengan alasan yang jelas
-6. Selesaikan laporan dan kirim notifikasi otomatis ke pelapor
-7. Ekspor laporan untuk kebutuhan arsip atau evaluasi
-
-## API utama
-
-Berikut daftar endpoint utama yang tersedia di aplikasi:
-
-- `GET /api/health` — mengecek status server
-- `GET /api/complaints` — daftar aduan publik
-- `GET /api/complaints/:code` — melihat detail aduan publik berdasarkan nomor pelacakan
-- `POST /api/complaints` — membuat aduan baru
-- `POST /api/complaints/:code/confirmation` — mengirim ulang email konfirmasi
-- `POST /api/complaints/:code/replies` — mengirim balasan dari warga
-- `POST /api/complaints/:code/ratings` — memberi rating ke aduan
-- `POST /api/auth/login` — login staff
-- `GET /api/auth/me` — mengecek sesi aktif staff
-- `POST /api/auth/logout` — logout staff
-- `GET /api/staff/complaints` — daftar aduan untuk staff
-- `GET /api/staff/complaints/:code` — detail aduan untuk staff
-- `PATCH /api/staff/complaints/:code` — update status atau tindak lanjut petugas
-- `GET /api/staff/complaints/report.xlsx` — ekspor laporan Excel
-- `DELETE /api/staff/complaints` — hapus aduan oleh admin
-
-## Export laporan Excel
-
-Pengguna staff/admin dapat mengekspor data aduan dalam bentuk `.xlsx` berdasarkan filter tanggal dan wilayah tertentu. Fitur ini sangat berguna untuk:
-
-- rekapan mingguan/bulanan
-- audit penanganan aduan
-- monitoring unit kerja
-- pelaporan ke pimpinan atau instansi terkait
-
-## Migrasi data dari Firebase
-
-Jika aplikasi lama masih menggunakan Firebase Realtime Database, Anda dapat menjalankan migrasi ke Supabase dengan perintah berikut:
-
-```powershell
-$env:SUPABASE_URL = "https://your-project.supabase.co"
-$env:SUPABASE_SERVICE_ROLE_KEY = "your-service-role-key"
-$env:FIREBASE_DATABASE_URL = "https://your-project-default-rtdb.firebaseio.com"
-$env:FIREBASE_DATABASE_SECRET = "your-firebase-database-secret"
-$env:FIREBASE_COMPLAINTS_PATH = "complaints"
-$env:DRY_RUN = "false"
-npm run migrate:firebase
+```bash
+npm start                  # menjalankan aplikasi dalam mode produksi
+npm run dev                # menjalankan aplikasi dengan watch mode
+npm run staff:claims       # menjalankan script pengaturan claim petugas
+npm run migrate:firebase   # migrasi data dari Firebase ke Supabase
+npm run test:api           # menjalankan uji API dasar
 ```
 
-Gunakan `DRY_RUN=true` untuk preview data tanpa menulis ke Supabase.
+## Komponen Utama
 
-## Deploy ke Vercel
+### 1. Server dan App Bootstrap
 
-1. Push project ke GitHub
-2. Masuk ke Vercel
-3. Pilih Add New → Project
-4. Pilih repository yang sesuai
-5. Gunakan framework preset `Other` atau sesuaikan dengan struktur project
-6. Tambahkan environment variables seperti:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `BREVO_API_KEY`
-   - `SMTP_FROM_EMAIL`
-   - `SMTP_FROM_NAME`
-   - `PUBLIC_APP_URL`
-   - `NODE_ENV=production`
-7. Jalankan deploy
+File utama aplikasi:
 
-Catatan:
-- `PUBLIC_APP_URL` disarankan diisi dengan domain publik agar link email bekerja saat aplikasi sudah live
-- Jika deployment menggunakan domain Vercel dengan proteksi akses, link email bisa gagal dibuka tanpa login; pastikan konfigurasi publik Anda sesuai
+- `server.js` — entry point untuk menjalankan server
+- `app.js` — ekspor aplikasi yang dibuat dari factory
+- `core/appFactory.js` — inisialisasi Express app dan registrasi middleware
 
-## Keamanan dan best practice
+### 2. Routing
 
-- Simpan semua credential sensitif di environment variable, bukan di kode
-- Jangan pernah mempublikasikan `.env` ke Git
-- `SUPABASE_SERVICE_ROLE_KEY` hanya untuk server-side
-- Hindari mengandalkan nomor aduan sebagai identitas pelapor yang kuat untuk logika otorisasi
-- Pastikan semua perubahan status dan penolakan aduan dicatat dengan jelas agar audit trail terbuka
-- Batasi request publik agar tidak terjadi spam atau penyalahgunaan
+Endpoint utama didefinisikan dalam:
 
-## Troubleshooting
+- `routes/authRoutes.js`
+- `routes/complaintRoutes.js`
+- `routes/index.js`
 
-### Error: `SUPABASE_URL is required.`
-Pastikan variabel `SUPABASE_URL` sudah ada di file `.env`.
+### 3. Controller
 
-### Error: email konfirmasi gagal terkirim
-Periksa:
-- `BREVO_API_KEY`
-- `SMTP_FROM_EMAIL`
-- domain pengirim yang sudah diverifikasi di Brevo
+Controller menangani input request dan mengembalikan response sesuai kebutuhan:
 
-### Error: aduan tidak bisa dibuat
-Periksa validasi form seperti:
-- kategori tidak valid
-- email tidak benar
-- deskripsi terlalu panjang
-- bukti foto tidak sesuai format atau terlalu besar
+- `controllers/authController.js`
+- `controllers/complaintController.js`
 
-### Staff tidak bisa login
-Pastikan:
-- akun staff sudah dibuat di Supabase Authentication
-- metadata `role` dan `unit` sudah diatur dengan benar
-- script `npm run staff:claims` sudah dijalankan
+### 4. Service Layer
 
-## Kesimpulan
+Business logic dibagi ke dalam beberapa service:
 
-Lacak Aduan adalah solusi pengaduan publik yang sederhana, cepat, dan transparan. Dengan pendekatan tanpa akun untuk warga, dashboard yang kuat untuk petugas, dan otomatisasi email yang rapi, aplikasi ini cocok digunakan untuk mendukung pelayanan publik modern serta meningkatkan kepercayaan masyarakat terhadap proses penanganan aduan.
+- `services/authService.js` — autentikasi dan manajemen akun petugas
+- `services/complaintService.js` — pengolahan data aduan
+- `services/emailService.js` — notifikasi email penerimaan dan update
+- `services/publicStatisticsService.js` — perhitungan statistik publik
+- `services/complaintReportService.js` — ekspor laporan Excel
 
-Jika Anda ingin, proyek ini juga bisa dikembangkan lebih lanjut dengan fitur seperti:
-- notifikasi WhatsApp
-- login SSO instansi
-- dashboard analitik yang lebih lengkap
-- map interaktif untuk lokasi aduan
-- sistem multi-tenant untuk beberapa kelurahan/kecamatan
+### 5. Middleware
+
+Middleware yang digunakan untuk memproteksi, memvalidasi, dan mengamankan proses:
+
+- `middleware/staffAuth.js` — autentikasi staf dan validasi peran akun
+- `middleware/mathChallenge.js` — middleware yang dapat digunakan untuk challenge sederhana terhadap bot atau request otomatis
+
+## Endpoint API
+
+Berikut beberapa endpoint yang tersedia pada aplikasi.
+
+### Health Check
+
+```http
+GET /api/health
+```
+
+Mengembalikan status aplikasi dan koneksi ke database.
+
+### Autentikasi Petugas
+
+```http
+POST /api/auth/login
+GET /api/auth/me
+POST /api/auth/logout
+GET /api/auth/staff
+POST /api/auth/staff/register
+PATCH /api/auth/staff/update
+DELETE /api/auth/staff/delete
+```
+
+### Pengaduan Publik
+
+```http
+POST /api/complaints
+GET /api/complaints/:code
+POST /api/complaints/:code/reply
+POST /api/complaints/:code/rating
+GET /api/public-statistics
+```
+
+### Manajemen Aduan Petugas
+
+```http
+GET /api/staff/complaints
+GET /api/staff/complaints/:code
+PATCH /api/staff/complaints/:code
+DELETE /api/staff/complaints
+GET /api/staff/report/export
+```
+
+> Catatan: detail endpoint dapat berkembang sesuai kebutuhan pengembangan dan perbaikan sistem. Pastikan untuk memeriksa file routing yang tersedia di `routes/` untuk dokumentasi yang selalu mutakhir.
+
+## Model Data Utama
+
+### `complaints`
+
+Tabel utama yang menyimpan data aduan. Struktur utama umumnya mencakup:
+
+- `code`: kode aduan unik
+- `data`: payload aduan dalam format JSON
+- `created_at`: waktu dibuat
+- `updated_at`: waktu terakhir diperbarui
+
+### `staff_profiles`
+
+Tabel profil petugas dan admin yang memuat:
+
+- `email`
+- `name`
+- `role`
+- `unit`
+- `status`
+- `auth_user_id`
+- `created_at`
+- `updated_at`
+
+## Keamanan
+
+Aplikasi ini memperhatikan beberapa aspek keamanan dasar, di antaranya:
+
+- penggunaan environment variable untuk menyimpan secret
+- autentikasi berbasis cookie untuk session petugas
+- validasi input dasar pada form dan request HTTP
+- penggunaan Supabase service role hanya untuk operasi backend internal
+- pemisahan peran admin dan petugas untuk membatasi akses
+- penggunaan HTTPS pada environment production untuk URL publik
+- proteksi terhadap request berlebihan melalui rate limiting
+
+## Deployment
+
+Untuk environment produksi, disarankan untuk:
+
+- menggunakan HTTPS secara penuh
+- menyimpan variabel environment pada platform hosting yang aman
+- membatasi akses ke service role key hanya pada server backend
+- mengaktifkan monitoring log dan error tracking
+- melakukan validasi konfigurasi email sebelum digunakan secara massal
+- menjaga `PUBLIC_APP_URL` sesuai dengan domain production yang benar
+
+## Catatan Pengembangan
+
+Beberapa file utility dan script membantu dalam pengelolaan sistem, antara lain:
+
+- `scripts/setStaffClaims.js` — digunakan untuk mengatur klaim peran petugas
+- `scripts/migrateFirebaseToSupabase.js` — migrasi data lama dari Firebase ke Supabase
+- `scripts/createAdmin.ps1` — membuat akun admin secara otomatis melalui PowerShell
+- `scripts/testApi.js` — testing endpoint API secara cepat
+
+## Pengujian
+
+Project ini sudah mencakup uji statistik publik pada file:
+
+```text
+tests/publicStatistics.test.js
+```
+
+Direkomendasikan untuk menjalankan uji yang relevan sebelum deployment atau pengiriman perubahan penting.
+
+## Lisensi
+
+Saat ini proyek ini belum memiliki lisensi formal yang eksplisit. Jika proyek ini akan digunakan dalam lingkungan komersial atau institusional, disarankan untuk menambahkan lisensi yang sesuai dengan kebijakan organisasi atau tim pengembang.
+
+## Kontribusi
+
+Kontribusi sangat terbuka untuk pengembangan lebih lanjut. Prinsip umum yang disarankan:
+
+- membuat branch baru untuk setiap perubahan
+- menjaga perubahan tetap fokus pada satu tujuan per commit
+- menjalankan validasi atau pengujian yang relevan
+- menulis deskripsi perubahan yang jelas pada pull request
+- memastikan tidak ada konfigurasi sensitif yang tercantum dalam source code
+
+## Penutup
+
+Lacak Aduan dirancang sebagai solusi digital untuk memperkuat sistem pengaduan publik agar lebih cepat, transparan, dan akuntabel. Dengan pendekatan berbasis web dan integrasi layanan modern seperti Supabase dan Brevo, aplikasi ini dapat menjadi fondasi yang kuat untuk pengelolaan aduan di lingkungan pemerintahan, layanan publik, atau organisasi yang membutuhkan mekanisme pelaporan yang terdokumentasi dengan baik.
+
+Jika Anda ingin, saya juga bisa membuatkan versi README yang lebih singkat untuk GitHub profile/external documentation, atau versi yang lebih teknis untuk tim developer. 

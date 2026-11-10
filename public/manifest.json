@@ -1,0 +1,28 @@
+{
+  "name": "PantauKota — Lacak & Aduan Layanan Publik",
+  "short_name": "PantauKota",
+  "description": "Platform pelaporan dan pelacakan penanganan aduan masyarakat secara transparan dan akuntabel tanpa perlu akun.",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "lang": "id",
+  "categories": ["government", "utilities", "public-service"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
