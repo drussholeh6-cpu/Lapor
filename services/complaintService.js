@@ -137,7 +137,9 @@ async function updateStaffComplaint(code, body, user) {
   }
 
   const operation = body.operation === 'request-info' ? 'request-info' : 'update';
-  const note = String(body.note || '').trim();
+  const rejecting = operation === 'update' && Number(body.status) === -1;
+  const rejectionReason = String(body.rejectionReason ?? (rejecting ? body.note : '')).trim();
+  const note = rejecting ? rejectionReason : String(body.note || '').trim();
   if (note.length > 2000) {
     throw new AppError('Catatan tindak lanjut maksimal 2.000 karakter.', { status: 400, code: 'VALIDATION_ERROR' });
   }
@@ -145,11 +147,14 @@ async function updateStaffComplaint(code, body, user) {
     throw new AppError(
       operation === 'request-info'
         ? 'Informasi yang diminta wajib diisi.'
-        : Number(body.status) === -1
+        : rejecting
           ? 'Alasan penolakan wajib diisi.'
           : 'Catatan tindak lanjut wajib diisi.',
       { status: 400, code: 'VALIDATION_ERROR' },
     );
+  }
+  if (rejecting && body.visibility !== 'public') {
+    throw new AppError('Alasan penolakan harus dapat dilihat warga.', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
   if (body.unit && !VALID_UNITS.has(body.unit)) {
@@ -160,7 +165,11 @@ async function updateStaffComplaint(code, body, user) {
     throw new AppError('Bukti harus berupa JPEG dan berukuran maksimal 2 MB.', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
-  return complaintModel.applyStaffAction(String(code).toUpperCase(), body, user);
+  return complaintModel.applyStaffAction(
+    String(code).toUpperCase(),
+    rejecting ? { ...body, note: rejectionReason, rejectionReason } : body,
+    user,
+  );
 }
 
 async function deleteStaffComplaints(codes, user) {

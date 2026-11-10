@@ -324,6 +324,9 @@ let selectedTicketCode = '';
 let selectedBulkTicketCodes = new Set();
 let deleteTargetCodes = [];
 let activeWorkspaceView = 'overview';
+let knownStaffComplaintCodes = new Set();
+let staffCodesInitialized = false;
+let staffRefreshInFlight = false;
 
 function normalizeTicket(input) {
   const ticket = { ...input };
@@ -456,6 +459,11 @@ function averageFinish(cases) {
   const finished = cases.filter((ticket) => baseStatus(ticket) === 3);
   if (!finished.length) return 0;
   return Math.round(finished.reduce((total, ticket) => total + elapsedDays(ticket), 0) / finished.length);
+}
+
+function ticketRegion(ticket) {
+  const parts = String(ticket.loc || '').split(',').map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[1] : parts[0] || 'Wilayah tidak disebutkan';
 }
 
 /* ─── Count-up metric ─── */
@@ -723,6 +731,8 @@ function clearSession() {
     /* Abaikan penyimpanan yang tidak tersedia. */
   }
   staffTickets = [];
+  knownStaffComplaintCodes.clear();
+  staffCodesInitialized = false;
   staffCaseDetails.clear();
   staffCaseRequest += 1;
   selectedTicketCode = '';
@@ -804,7 +814,9 @@ function renderDashboard() {
   const user = currentSession();
   if (!user) return;
 
-  const cases = accessibleTickets();
+  const allCases = accessibleTickets();
+  renderDashboardReport(allCases);
+  const cases = filteredDashboardCases(allCases);
   const isAdmin = user.role === 'admin';
   const finished = cases.filter((ticket) => baseStatus(ticket) === 3);
   const rated = finished.filter((ticket) => ticket.rating);
@@ -829,11 +841,172 @@ function renderDashboard() {
   const ratingCount = $('metric-rating-count');
   if (ratingCount) ratingCount.textContent = rated.length ? `${rated.length} penilaian` : 'belum ada penilaian';
 
-  renderStaffTable(cases);
-  renderActivity(cases);
+  renderStaffTable(allCases);
+  renderActivity(allCases);
 
   const title = $('workspace-title');
   if (title) title.textContent = workspaceViewTitle(activeWorkspaceView, user);
+}
+
+function filteredDashboardCases(cases) {
+  const from = $('report-from')?.value || '';
+  const to = $('report-to')?.value || '';
+  const region = $('report-region')?.value || 'all';
+
+  return cases.filter((ticket) => {
+    const date = String(ticket.at || '').slice(0, 10);
+    return (!from || date >= from)
+      && (!to || date <= to)
+      && (region === 'all' || ticketRegion(ticket) === region);
+  });
+}
+
+function renderTrendChart(cases) {
+  const chart = $('complaint-trend');
+  if (!chart) return;
+
+  const end = $('report-to')?.value
+    ? new Date(`${$('report-to').value}T12:00:00`)
+    : new Date();
+  const start = $('report-from')?.value
+    ? new Date(`${$('report-from').value}T12:00:00`)
+    : new Date(end.getFullYear(), end.getMonth() - 11, 1);
+  const rangeDays = Math.max(1, Math.ceil((end - start) / DAY) + 1);
+  const daily = rangeDays <= 31;
+  const plotStart = daily ? start : rangeDays > 366 ? new Date(end.getFullYear(), end.getMonth() - 11, 1) : start;
+  const periods = [];
+
+  if (daily) {
+    for (let cursor = new Date(plotStart); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      periods.push({
+        key: cursor.toISOString().slice(0, 10),
+        label: cursor.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+      });
+    }
+  } else {
+    const cursor = new Date(plotStart.getFullYear(), plotStart.getMonth(), 1);
+    while (cursor <= end && periods.length < 12) {
+      periods.push({
+        key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        label: cursor.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' }),
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+  }
+
+  const counts = new Map(periods.map((period) => [period.key, 0]));
+  cases.forEach((ticket) => {
+    const date = new Date(ticket.at);
+    if (!Number.isFinite(date.getTime()) || date < plotStart || date > end) return;
+    const key = daily
+      ? date.toISOString().slice(0, 10)
+      : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (counts.has(key)) counts.set(key, counts.get(key) + 1);
+  });
+
+  const max = Math.max(1, ...counts.values());
+  chart.innerHTML = periods.length
+    ? periods.map((period) => {
+      const count = counts.get(period.key);
+      const height = count ? Math.max(5, Math.round((count / max) * 100)) : 2;
+      return `<div class="trend-column" title="${escapeHtml(period.label)}: ${count} aduan"><span class="trend-value">${count || ''}</span><span class="trend-bar" style="--bar-height:${height}%"></span><small>${escapeHtml(period.label)}</small></div>`;
+    }).join('')
+    : '<p class="empty-row">Belum ada data pada periode ini.</p>';
+
+  const summary = $('trend-summary');
+  if (summary) summary.textContent = `${cases.length} aduan pada filter`;
+}
+
+function renderDashboardHistory(cases) {
+  const list = $('dashboard-history');
+  if (!list) return;
+
+  const activities = cases
+    .flatMap((ticket) => ticket.audit.map((event) => ({ ...event, code: ticket.code })))
+    .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+    .slice(0, 6);
+
+  list.innerHTML = activities.length
+    ? activities.map((event) => (
+      `<li><span class="activity-dot ${event.kind === 'request-info' ? 'alert' : ''}"></span><div><b>${escapeHtml(event.code)} · ${escapeHtml(event.by)}</b><p>${escapeHtml(event.note)}</p><small>${formatDate(event.at)}</small></div></li>`
+    )).join('')
+    : '<li><span class="activity-dot"></span><div><b>Belum ada perubahan</b><p>Riwayat perubahan aduan akan muncul di sini.</p></div></li>';
+}
+
+function renderDashboardReport(cases) {
+  const regionSelect = $('report-region');
+  if (!regionSelect) return;
+
+  const selectedRegion = regionSelect.value || 'all';
+  const regions = [...new Set(cases.map(ticketRegion))].sort((a, b) => a.localeCompare(b, 'id'));
+  regionSelect.innerHTML = `<option value="all">Semua wilayah</option>${regions
+    .map((region) => `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`)
+    .join('')}`;
+  regionSelect.value = regions.includes(selectedRegion) ? selectedRegion : 'all';
+
+  const filtered = filteredDashboardCases(cases);
+  renderTrendChart(filtered);
+  renderDashboardHistory(filtered);
+}
+
+function exportDashboardReport() {
+  const cases = filteredDashboardCases(accessibleTickets());
+  const rows = [
+    ['Nomor aduan', 'Tanggal', 'Wilayah', 'Lokasi', 'Kategori', 'Status', 'Prioritas', 'Unit', 'Catatan terakhir'],
+    ...cases.map((ticket) => [
+      ticket.code,
+      new Date(ticket.at).toLocaleDateString('id-ID'),
+      ticketRegion(ticket),
+      ticket.loc,
+      ticket.cat,
+      statusLabel(ticket),
+      priorityLabel(ticket.priority),
+      ticket.unit,
+      currentEntry(ticket).note,
+    ]),
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map((cell) => {
+    const value = String(cell ?? '');
+    const safeValue = /^[\t\r=+\-@]/.test(value) ? `'${value}` : value;
+    return `"${safeValue.replace(/"/g, '""')}"`;
+  }).join(',')).join('\r\n')}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `laporan-aduan-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function refreshStaffComplaints() {
+  if (!currentSession() || staffRefreshInFlight) return;
+  staffRefreshInFlight = true;
+  try {
+    const latest = (await apiRequest('/staff/complaints')).map(normalizeTicket);
+    if (!staffCodesInitialized) {
+      knownStaffComplaintCodes = new Set(latest.map((ticket) => ticket.code));
+      staffCodesInitialized = true;
+      staffTickets = latest;
+      renderDashboard();
+      return;
+    }
+
+    const newComplaints = latest.filter((ticket) => !knownStaffComplaintCodes.has(ticket.code));
+    latest.forEach((ticket) => knownStaffComplaintCodes.add(ticket.code));
+    staffTickets = latest;
+    staffCaseDetails.clear();
+    renderDashboard();
+
+    if (newComplaints.length) {
+      toast(`${newComplaints.length} aduan baru masuk.`, 'info', 7000);
+      if (activeWorkspaceView === 'cases') renderCaseEditor();
+    }
+  } catch (error) {
+    if (!sessionExpired(error)) console.error('Gagal memperbarui daftar aduan petugas:', error.message);
+  } finally {
+    staffRefreshInFlight = false;
+  }
 }
 
 function filteredStaffCases(cases) {
@@ -1011,9 +1184,11 @@ function renderActivity(cases) {
     .slice(0, 10);
 
   const lastSeen = Number(localStorage.getItem(SEEN_KEY) || 0);
-  const unread = activities.filter((event) => new Date(event.at).getTime() > lastSeen).length;
+  const unread = cases.filter((ticket) => new Date(ticket.at).getTime() > lastSeen).length;
   const count = $('notification-count');
-  if (count) count.textContent = `${unread} baru`;
+  if (count) count.textContent = `${unread} aduan baru`;
+  const dashboardCount = $('dashboard-notification-count');
+  if (dashboardCount) dashboardCount.textContent = `${unread} aduan baru`;
 
   list.innerHTML = activities.length
     ? activities
@@ -1669,6 +1844,8 @@ async function submitLogin(event) {
     rememberSession();
     staffCaseDetails.clear();
     staffTickets = (await apiRequest('/staff/complaints')).map(normalizeTicket);
+    knownStaffComplaintCodes = new Set(staffTickets.map((ticket) => ticket.code));
+    staffCodesInitialized = true;
     $('f-login').reset();
     setStaffView();
     toast(`Selamat datang, ${result.user.name || 'Petugas'}.`, 'success');
@@ -1766,7 +1943,9 @@ async function submitStaffAction(event) {
   }
 
   const operation = event.submitter?.value || 'update';
-  const note = $('s-note').value.trim();
+  const statusValue = operation === 'update' ? Number($('s-st').value) : null;
+  const rejecting = operation === 'update' && statusValue === -1;
+  const note = (rejecting ? $('s-rejection-reason').value : $('s-note').value).trim();
   const visibility = $('s-visibility').value;
 
   if (!['public', 'internal'].includes(visibility)) {
@@ -1778,7 +1957,6 @@ async function submitStaffAction(event) {
     return;
   }
 
-  const statusValue = operation === 'update' ? Number($('s-st').value) : null;
   if (operation === 'update' && !Number.isInteger(statusValue)) {
     message.textContent = 'Pilih status tindak lanjut.';
     return;
@@ -1793,7 +1971,7 @@ async function submitStaffAction(event) {
       : statusValue === -1
         ? 'Alasan penolakan wajib diisi.'
         : 'Catatan tindak lanjut wajib diisi.';
-    $('s-note').focus();
+    (rejecting ? $('s-rejection-reason') : $('s-note')).focus();
     return;
   }
 
@@ -1814,6 +1992,7 @@ async function submitStaffAction(event) {
       body: JSON.stringify({
         operation,
         note,
+        rejectionReason: rejecting ? note : undefined,
         visibility,
         status: statusValue,
         priority: $('s-priority').value,
@@ -1829,6 +2008,7 @@ async function submitStaffAction(event) {
     mergePublicTicket(normalized);
 
     $('s-note').value = '';
+    $('s-rejection-reason').value = '';
     $('s-visibility').value = 'public';
     $('staff-evidence').value = '';
     $('smsg').textContent =
@@ -1853,16 +2033,25 @@ function updateStaffNoteField(operation = 'update') {
   const requestingInfo = operation === 'request-info';
   const label = $('s-note-label');
   const note = $('s-note');
-  if (!label || !note) return;
+  const noteField = $('s-note-field');
+  const reasonField = $('s-rejection-field');
+  const reason = $('s-rejection-reason');
+  const visibilityField = $('s-visibility-field');
+  const visibility = $('s-visibility');
+  if (!label || !note || !noteField || !reasonField || !reason || !visibilityField || !visibility) return;
 
   label.textContent = rejected
-    ? 'Alasan penolakan'
+    ? 'Catatan tindak lanjut'
     : requestingInfo ? 'Informasi yang diminta' : 'Catatan tindak lanjut';
-  note.required = true;
-  note.placeholder = rejected
-    ? 'Tuliskan alasan aduan ditolak (wajib diisi).'
-    : requestingInfo
-      ? 'Tuliskan informasi yang perlu disampaikan kepada warga.'
+  noteField.hidden = rejected;
+  reasonField.hidden = !rejected;
+  note.required = !rejected;
+  reason.required = rejected;
+  visibilityField.hidden = rejected;
+  visibility.disabled = rejected;
+  if (rejected) visibility.value = 'public';
+  note.placeholder = requestingInfo
+    ? 'Tuliskan informasi yang perlu disampaikan kepada warga.'
     : 'Jelaskan tindakan atau keputusan tindak lanjut.';
 }
 
@@ -2282,6 +2471,12 @@ function bindEvents() {
     });
   });
 
+  ['report-from', 'report-to', 'report-region'].forEach((id) => {
+    $(id)?.addEventListener('change', renderDashboard);
+  });
+  $('export-excel')?.addEventListener('click', exportDashboardReport);
+  $('export-pdf')?.addEventListener('click', () => window.print());
+
   $('staff-rows')?.addEventListener('click', (event) => {
     const checkbox = event.target.closest('input[data-select-ticket]');
     if (checkbox) return;
@@ -2341,10 +2536,12 @@ function bindEvents() {
   });
 
   $('locate-me')?.addEventListener('click', locateUser);
-  $('mark-read')?.addEventListener('click', () => {
+  const markNewComplaintsRead = () => {
     localStorage.setItem(SEEN_KEY, String(Date.now()));
     renderActivity(accessibleTickets());
-  });
+  };
+  $('mark-read')?.addEventListener('click', markNewComplaintsRead);
+  $('mark-read-dashboard')?.addEventListener('click', markNewComplaintsRead);
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
@@ -2376,6 +2573,8 @@ async function initialize() {
       rememberSession();
       staffCaseDetails.clear();
       staffTickets = (await apiRequest('/staff/complaints')).map(normalizeTicket);
+      knownStaffComplaintCodes = new Set(staffTickets.map((ticket) => ticket.code));
+      staffCodesInitialized = true;
     } catch {
       clearSession();
     }
@@ -2384,6 +2583,7 @@ async function initialize() {
   }
 
   setStaffView();
+  window.setInterval(refreshStaffComplaints, 60_000);
   primeUserLocation();
 }
 

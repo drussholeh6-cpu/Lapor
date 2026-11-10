@@ -62,6 +62,12 @@ npm run staff:claims
 
 Untuk admin, gunakan `STAFF_ROLE=admin` dan abaikan `STAFF_UNIT`.
 
+## Dashboard petugas dan admin
+
+Dashboard menyediakan filter rentang tanggal dan wilayah (diambil dari bagian alamat setelah nama jalan), grafik tren pengaduan, riwayat perubahan, serta notifikasi aduan baru yang diperbarui otomatis setiap menit selama sesi aktif. Laporan yang sedang difilter dapat diunduh sebagai CSV yang kompatibel dengan Excel atau dicetak/disimpan sebagai PDF melalui dialog cetak browser.
+
+Saat petugas atau admin memilih status **Tolak aduan**, alasan penolakan wajib diisi pada kolom khusus dan selalu ditampilkan kepada warga pada riwayat status.
+
 ## Migrasi data lama dari Firebase
 
 Jika data lama masih berada di Firebase Realtime Database, gunakan script migrasi ini:

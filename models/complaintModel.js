@@ -187,11 +187,14 @@ async function applyStaffAction(code, input, user) {
   const complaint = cloneComplaintData(existing);
   const now = new Date().toISOString();
   const operation = input.operation === 'request-info' ? 'request-info' : 'update';
-  const note = String(input.note || '').trim();
+  const rejecting = operation === 'update' && Number(input.status) === -1;
+  const rejectionReason = String(input.rejectionReason ?? (rejecting ? input.note : '')).trim();
+  const note = rejecting ? rejectionReason : String(input.note || '').trim();
   const visibility = input.visibility;
 
   if (!note || note.length > 2000 || !VALID_VISIBILITY.includes(visibility)) return null;
   if (operation === 'request-info' && visibility !== 'public') return null;
+  if (rejecting && visibility !== 'public') return null;
 
   if (VALID_PRIORITIES.includes(input.priority) && input.priority !== existing.priority) {
     complaint.priority = input.priority;
@@ -234,7 +237,10 @@ async function applyStaffAction(code, input, user) {
   complaint.waitingForInfo = false;
 
   const statusName = nextStatus === -1 ? 'Ditolak' : STATUS_LABELS[nextStatus];
-  addAudit(complaint, 'status', user.name, `Status diubah menjadi ${statusName}.`);
+  const auditNote = nextStatus === -1
+    ? `Status diubah menjadi ${statusName}. Alasan: ${rejectionReason}`
+    : `Status diubah menjadi ${statusName}.`;
+  addAudit(complaint, 'status', user.name, auditNote);
 
   return saveComplaintUpdate(code, complaint);
 }

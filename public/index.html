@@ -383,6 +383,32 @@
           <div class="kpi" id="kpi-units" hidden><span>Unit aktif</span><b id="metric-units">0</b><small>unit terlibat</small></div>
         </div>
 
+        <section class="panel dashboard-report" data-admin-section="overview">
+          <div class="panel-head">
+            <div><h2>Laporan pengaduan</h2><p>Filter dan pantau tren pengaduan berdasarkan tanggal serta wilayah.</p></div>
+            <div class="report-actions">
+              <span class="notification-count" id="dashboard-notification-count">0 aduan baru</span>
+              <button class="btn btn-ghost btn-small" id="export-excel" type="button">Export Excel</button>
+              <button class="btn btn-dark btn-small" id="export-pdf" type="button">Export PDF</button>
+            </div>
+          </div>
+          <div class="report-filters">
+            <label for="report-from">Dari tanggal<input id="report-from" type="date"></label>
+            <label for="report-to">Sampai tanggal<input id="report-to" type="date"></label>
+            <label for="report-region">Wilayah<select id="report-region"><option value="all">Semua wilayah</option></select></label>
+          </div>
+          <div class="report-grid">
+            <section class="report-chart" aria-labelledby="trend-title">
+              <div class="report-subhead"><h3 id="trend-title">Tren pengaduan</h3><span id="trend-summary"></span></div>
+              <div id="complaint-trend" class="trend-chart" role="img" aria-label="Grafik tren pengaduan"></div>
+            </section>
+            <section class="report-history" aria-labelledby="history-title">
+              <div class="report-subhead"><h3 id="history-title">Riwayat perubahan</h3><button class="text-button" id="mark-read-dashboard" type="button">Tandai dibaca</button></div>
+              <ol id="dashboard-history" class="activity-list"></ol>
+            </section>
+          </div>
+        </section>
+
         <div class="workspace-grid" data-admin-section="cases">
           <section class="panel panel-list">
             <div class="panel-head">
@@ -463,15 +489,21 @@
                 <label for="s-st">Status tindak lanjut</label>
                 <select id="s-st"></select>
               </div>
-              <div class="field full">
+              <div class="field full" id="s-note-field">
                 <label for="s-note" id="s-note-label">Catatan tindak lanjut</label>
-                <textarea id="s-note" required maxlength="2000" placeholder="Jelaskan tindakan atau keputusan tindak lanjut."></textarea>
+                <textarea id="s-note" maxlength="2000" placeholder="Jelaskan tindakan atau keputusan tindak lanjut."></textarea>
+              </div>
+              <div class="field full" id="s-rejection-field" hidden>
+                <label for="s-rejection-reason">Alasan penolakan <span class="required-mark">wajib</span></label>
+                <textarea id="s-rejection-reason" maxlength="2000" placeholder="Jelaskan alasan aduan ditolak agar dapat diketahui warga."></textarea>
+              </div>
+              <div class="field full" id="s-visibility-field">
                 <label for="s-visibility">Visibilitas catatan</label>
                 <select id="s-visibility">
                   <option value="public">Dapat dilihat warga</option>
                   <option value="internal">Internal petugas</option>
                 </select>
-                <p class="hint">Status selalu terlihat warga. Catatan internal hanya tampil di ruang petugas. Permintaan informasi selalu ditampilkan ke warga.</p>
+                <p class="hint" id="s-visibility-hint">Status selalu terlihat warga. Catatan internal hanya tampil di ruang petugas. Permintaan informasi selalu ditampilkan ke warga.</p>
               </div>
               <div class="field full">
                 <label for="staff-evidence">Bukti penanganan <span class="optional">(opsional, maks. 2 MB)</span></label>
