@@ -657,6 +657,15 @@
     </form>
   </div>
 
+  <div id="image-preview-modal" class="modal image-preview-modal" hidden>
+    <button class="modal-backdrop" type="button" data-close-image-preview aria-label="Tutup pratinjau foto"></button>
+    <section class="image-preview-card" role="dialog" aria-modal="true" aria-labelledby="image-preview-caption">
+      <button class="icon-button image-preview-close" type="button" id="image-preview-close" aria-label="Tutup pratinjau foto">×</button>
+      <img id="image-preview-image" alt="">
+      <p id="image-preview-caption"></p>
+    </section>
+  </div>
+
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
 
   <script src="/vendor/leaflet/leaflet.js" defer></script>

@@ -620,7 +620,7 @@ function evidenceMarkup(value) {
       if (!url) return '';
       const source = escapeHtml(attachment.source || 'Bukti aduan');
       const date = attachment.at ? `<small>${formatDate(attachment.at)}</small>` : '';
-      return `<figure class="evidence-item"><a class="evidence-link" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="${source}" loading="lazy"></a><figcaption><span>${source}</span>${date}</figcaption></figure>`;
+      return `<figure class="evidence-item"><button class="evidence-link" type="button" aria-label="Perbesar foto: ${source}"><img src="${escapeHtml(url)}" alt="${source}" loading="lazy"></button><figcaption><span>${source}</span>${date}</figcaption></figure>`;
     })
     .filter(Boolean)
     .join('');
@@ -2405,6 +2405,25 @@ function setupReveal() {
 
 /* ─── Events ─── */
 function bindEvents() {
+  document.addEventListener('click', (event) => {
+    const imageButton = event.target.closest('.evidence-link');
+    if (imageButton) {
+      const sourceImage = imageButton.querySelector('img');
+      const preview = $('image-preview-image');
+      if (sourceImage && preview) {
+        preview.src = sourceImage.currentSrc || sourceImage.src;
+        preview.alt = sourceImage.alt;
+        $('image-preview-caption').textContent = imageButton.getAttribute('aria-label')?.replace('Perbesar foto: ', '') || 'Bukti aduan';
+        $('image-preview-modal').hidden = false;
+        $('image-preview-close').focus();
+      }
+    }
+
+    if (event.target.closest('[data-close-image-preview]')) closeEvidencePreview();
+  });
+
+  $('image-preview-close')?.addEventListener('click', closeEvidencePreview);
+
   $$('#main-nav button').forEach((button) => {
     button.addEventListener('click', () => tab(button.dataset.tab));
   });
@@ -2634,12 +2653,24 @@ function bindEvents() {
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (!$('image-preview-modal').hidden) closeEvidencePreview();
       if (!$('captcha-modal').hidden) closeCaptchaModal();
       closeDeleteModal();
       closeStaffEdit();
       closeMenu();
     }
   });
+}
+
+function closeEvidencePreview() {
+  const modal = $('image-preview-modal');
+  if (!modal || modal.hidden) return;
+  modal.hidden = true;
+  const image = $('image-preview-image');
+  if (image) {
+    image.removeAttribute('src');
+    image.alt = '';
+  }
 }
 
 /* ─── Init ─── */
