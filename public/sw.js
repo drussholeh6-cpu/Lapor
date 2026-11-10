@@ -3,13 +3,15 @@
    Offline caching, fast loading & background sync resilience
    ══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pantaukota-v1';
+const CACHE_NAME = 'pantaukota-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/style.css',
   '/script.js',
   '/manifest.webmanifest',
+  '/icons/logo.png',
+  '/icons/favicon.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/vendor/leaflet/leaflet.css',
