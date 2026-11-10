@@ -1,4 +1,5 @@
 const BREVO_EMAIL_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
+const PRODUCTION_APP_URL = 'https://aduan.badrussholeh.my.id';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -27,7 +28,9 @@ function getEmailConfig() {
 function getPublicAppUrl() {
   const configuredUrl = process.env.PUBLIC_APP_URL?.trim();
   const vercelUrl = process.env.VERCEL_URL?.trim();
-  const value = configuredUrl || (vercelUrl ? `https://${vercelUrl}` : '');
+  const value = configuredUrl
+    || (process.env.VERCEL_ENV === 'production' ? PRODUCTION_APP_URL : '')
+    || (vercelUrl ? `https://${vercelUrl}` : '');
   if (!value) throw new Error('PUBLIC_APP_URL must be configured.');
 
   const url = new URL(value);
