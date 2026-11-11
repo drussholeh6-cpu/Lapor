@@ -998,16 +998,16 @@ function renderTrendChart(cases) {
   const todayDate = localTodayStr();
   const hasCustomRange = Boolean($('report-from')?.value || $('report-to')?.value);
   const to = $('report-to')?.value || todayDate;
-  let defaultStart = new Date(`${todayDate}T12:00:00Z`);
+  let defaultStart = new Date();
   if (grouping === 'day') {
-    defaultStart.setUTCDate(defaultStart.getUTCDate() - 29);
+    defaultStart.setDate(defaultStart.getDate() - 11); // 12 hari terakhir (hari ini + 11 ke belakang)
   } else if (grouping === 'year') {
-    defaultStart.setUTCFullYear(defaultStart.getUTCFullYear() - 4, 0, 1);
+    defaultStart.setFullYear(defaultStart.getFullYear() - 4, 0, 1);
   } else {
-    defaultStart.setUTCDate(1);
-    defaultStart.setUTCMonth(defaultStart.getUTCMonth() - 11);
+    defaultStart.setDate(1);
+    defaultStart.setMonth(defaultStart.getMonth() - 11);
   }
-  const defaultFrom = defaultStart.toISOString().slice(0, 10);
+  const defaultFrom = localDateStr(defaultStart.toISOString());
   const from = $('report-from')?.value || (hasCustomRange ? dateKeys[0] || todayDate : defaultFrom);
   const start = new Date(`${from}T00:00:00`);
   const end = new Date(`${to}T00:00:00`);
@@ -1028,32 +1028,32 @@ function renderTrendChart(cases) {
   const cursor = new Date(start);
   if (grouping === 'day') {
     while (cursor <= end) {
+      const key = localDateStr(cursor.toISOString());
       periods.push({
-        key: cursor.toISOString().slice(0, 10),
+        key,
         label: cursor.toLocaleDateString('id-ID', {
           day: 'numeric',
           month: 'short',
-          ...(start.getUTCFullYear() !== end.getUTCFullYear() ? { year: '2-digit' } : {}),
-          timeZone: 'UTC',
+          ...(start.getFullYear() !== end.getFullYear() ? { year: '2-digit' } : {}),
         }),
       });
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
+      cursor.setDate(cursor.getDate() + 1);
     }
   } else if (grouping === 'year') {
-    cursor.setUTCDate(1);
-    cursor.setUTCMonth(0);
+    cursor.setDate(1);
+    cursor.setMonth(0);
     while (cursor <= end) {
-      periods.push({ key: String(cursor.getUTCFullYear()), label: String(cursor.getUTCFullYear()) });
-      cursor.setUTCFullYear(cursor.getUTCFullYear() + 1);
+      periods.push({ key: String(cursor.getFullYear()), label: String(cursor.getFullYear()) });
+      cursor.setFullYear(cursor.getFullYear() + 1);
     }
   } else {
-    cursor.setUTCDate(1);
+    cursor.setDate(1);
     while (cursor <= end) {
       periods.push({
-        key: cursor.toISOString().slice(0, 7),
-        label: cursor.toLocaleDateString('id-ID', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
+        key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        label: cursor.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' }),
       });
-      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      cursor.setMonth(cursor.getMonth() + 1);
     }
   }
 
