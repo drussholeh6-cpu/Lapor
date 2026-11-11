@@ -1,6 +1,11 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { publicStatistics } = require('../services/publicStatisticsService');
+const complaintModel = require('../models/complaintModel');
+const {
+  getPublicStatistics,
+  invalidatePublicStatistics,
+  publicStatistics,
+} = require('../services/publicStatisticsService');
 
 const now = new Date('2026-11-10T12:00:00.000Z');
 
@@ -59,4 +64,22 @@ test('does not publish ranking or heatmap cells with fewer than three records', 
 
   assert.equal(result.unitResponse.length, 0);
   assert.equal(result.heatmap.length, 0);
+});
+
+test('refreshes cached public statistics after complaint changes', async () => {
+  const originalListComplaints = complaintModel.listComplaints;
+  let complaints = [];
+  complaintModel.listComplaints = async () => complaints;
+  invalidatePublicStatistics();
+
+  try {
+    assert.equal((await getPublicStatistics()).total, 0);
+    complaints = [complaint(1, { status: 0 })];
+    assert.equal((await getPublicStatistics()).total, 0);
+    invalidatePublicStatistics();
+    assert.equal((await getPublicStatistics()).total, 1);
+  } finally {
+    complaintModel.listComplaints = originalListComplaints;
+    invalidatePublicStatistics();
+  }
 });

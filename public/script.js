@@ -10,6 +10,9 @@ const SESSION_FLAG = 'la-has-session';
 const THEME_KEY = 'la-theme';
 const SEEN_KEY = 'la-seen';
 const LOCATION_KEY = 'la-location';
+const PUBLIC_STATISTICS_CACHE_KEY = 'la-public-statistics-v1';
+const PUBLIC_STATISTICS_REFRESH_MS = 15_000;
+const STAFF_COMPLAINTS_REFRESH_MS = 15_000;
 let addressLookupTimer;
 let addressLookupSequence = 0;
 let complaintEvidenceSelection = null;
@@ -518,6 +521,27 @@ function renderHome() {
 let publicStatisticsData = null;
 let statisticsLoadPromise = null;
 
+function validPublicStatistics(data) {
+  return data
+    && typeof data === 'object'
+    && Number.isFinite(Number(data.total))
+    && Array.isArray(data.monthly)
+    && Array.isArray(data.categoryAverages)
+    && Array.isArray(data.unitResponse)
+    && Array.isArray(data.heatmap);
+}
+
+function loadCachedPublicStatistics() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(PUBLIC_STATISTICS_CACHE_KEY) || 'null');
+    if (!validPublicStatistics(cached)) return;
+    publicStatisticsData = cached;
+    renderPublicStatistics(cached);
+  } catch (error) {
+    console.warn('Cache statistik publik tidak dapat dibaca:', error.message);
+  }
+}
+
 function animatePublicStat(element, value, suffix = '') {
   if (value === null || !Number.isFinite(Number(value))) {
     element.textContent = '—';
@@ -609,9 +633,14 @@ function renderPublicStatistics(data) {
 async function loadPublicStatistics() {
   if (statisticsLoadPromise) return statisticsLoadPromise;
   const updated = $('stats-updated');
-  statisticsLoadPromise = apiRequest('/statistics')
+  statisticsLoadPromise = apiRequest('/statistics', { cache: 'no-store' })
     .then((data) => {
       publicStatisticsData = data;
+      try {
+        localStorage.setItem(PUBLIC_STATISTICS_CACHE_KEY, JSON.stringify(data));
+      } catch (error) {
+        console.warn('Cache statistik publik tidak dapat disimpan:', error.message);
+      }
       renderPublicStatistics(data);
       // Render ulang peta setelah data masuk; juga invalidate size bila container baru terlihat
       if (statisticsMap) {
@@ -974,8 +1003,20 @@ function renderTrendChart(cases) {
     .map((ticket) => String(ticket.at || '').slice(0, 10))
     .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
     .sort();
-  const from = $('report-from')?.value || dateKeys[0] || new Date().toISOString().slice(0, 10);
-  const to = $('report-to')?.value || dateKeys[dateKeys.length - 1] || from;
+  const latestDate = dateKeys[dateKeys.length - 1] || new Date().toISOString().slice(0, 10);
+  const hasCustomRange = Boolean($('report-from')?.value || $('report-to')?.value);
+  let defaultStart = new Date(`${latestDate}T12:00:00Z`);
+  if (grouping === 'day') {
+    defaultStart.setUTCDate(defaultStart.getUTCDate() - 29);
+  } else if (grouping === 'year') {
+    defaultStart.setUTCFullYear(defaultStart.getUTCFullYear() - 4, 0, 1);
+  } else {
+    defaultStart.setUTCDate(1);
+    defaultStart.setUTCMonth(defaultStart.getUTCMonth() - 11);
+  }
+  const defaultFrom = defaultStart.toISOString().slice(0, 10);
+  const from = $('report-from')?.value || (hasCustomRange ? dateKeys[0] || latestDate : defaultFrom);
+  const to = $('report-to')?.value || latestDate;
   const start = new Date(`${from}T12:00:00Z`);
   const end = new Date(`${to}T12:00:00Z`);
   const title = $('trend-title');
@@ -1114,7 +1155,7 @@ async function refreshStaffComplaints() {
   if (!currentSession() || staffRefreshInFlight) return;
   staffRefreshInFlight = true;
   try {
-    const latest = (await apiRequest('/staff/complaints')).map(normalizeTicket);
+    const latest = (await apiRequest('/staff/complaints', { cache: 'no-store' })).map(normalizeTicket);
     if (!staffCodesInitialized) {
       knownStaffComplaintCodes = new Set(latest.map((ticket) => ticket.code));
       staffCodesInitialized = true;
@@ -1130,7 +1171,10 @@ async function refreshStaffComplaints() {
     renderDashboard();
 
     if (newComplaints.length) {
-      toast(`${newComplaints.length} aduan baru masuk.`, 'info', 7000);
+      const newCodes = newComplaints.slice(0, 3).map((ticket) => ticket.code).join(', ');
+      const remaining = newComplaints.length - Math.min(newComplaints.length, 3);
+      const message = `${newComplaints.length} aduan baru masuk: ${newCodes}${remaining ? `, dan ${remaining} lainnya` : ''}.`;
+      toast(message, 'info', 9000);
       if (activeWorkspaceView === 'cases') renderCaseEditor();
     }
   } catch (error) {
@@ -2871,6 +2915,7 @@ async function initialize() {
 
   renderBoard();
   ensureStatisticsMap();
+  loadCachedPublicStatistics();
 
   void loadPublicTickets().then((loadedTickets) => {
     tickets = loadedTickets;
@@ -2880,10 +2925,14 @@ async function initialize() {
 
   window.setInterval(() => {
     if (!document.hidden) loadPublicStatistics();
-  }, 60_000);
+  }, PUBLIC_STATISTICS_REFRESH_MS);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) loadPublicStatistics();
+    if (!document.hidden) {
+      loadPublicStatistics();
+      refreshStaffComplaints();
+    }
   });
+  window.addEventListener('focus', refreshStaffComplaints);
 
   if (hasSessionMarker()) {
     try {
@@ -2902,7 +2951,7 @@ async function initialize() {
   }
 
   setStaffView();
-  window.setInterval(refreshStaffComplaints, 60_000);
+  window.setInterval(refreshStaffComplaints, STAFF_COMPLAINTS_REFRESH_MS);
   primeUserLocation();
 
   const trackingCode = new URLSearchParams(window.location.search).get('track');

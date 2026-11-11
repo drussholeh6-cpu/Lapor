@@ -27,8 +27,8 @@ const challengeLimiter = rateLimit({
   message: { message: 'Terlalu banyak permintaan soal verifikasi. Coba lagi sebentar.' },
 });
 const statisticsLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 60,
+  windowMs: 60 * 1000,
+  limit: 120,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { message: 'Terlalu banyak permintaan statistik. Silakan coba kembali nanti.' },

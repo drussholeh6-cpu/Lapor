@@ -10,10 +10,11 @@ const CATEGORY_TARGET_DAYS = {
 };
 const DAY_MS = 86_400_000;
 const MIN_PUBLIC_CELL_COUNT = 3;
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 10_000;
 let cachedStatistics = null;
 let cacheExpiresAt = 0;
 let refreshPromise = null;
+let cacheVersion = 0;
 
 function targetDays(complaint) {
   const base = CATEGORY_TARGET_DAYS[complaint.cat] || CATEGORY_TARGET_DAYS.Lainnya;
@@ -113,15 +114,29 @@ function publicStatistics(complaints, now = new Date()) {
 async function getPublicStatistics() {
   if (cachedStatistics && Date.now() < cacheExpiresAt) return cachedStatistics;
   if (!refreshPromise) {
-    refreshPromise = complaintModel.listComplaints()
+    const requestVersion = cacheVersion;
+    const pendingRequest = complaintModel.listComplaints()
       .then((complaints) => {
-        cachedStatistics = publicStatistics(complaints);
-        cacheExpiresAt = Date.now() + CACHE_TTL_MS;
-        return cachedStatistics;
+        const statistics = publicStatistics(complaints);
+        if (requestVersion === cacheVersion) {
+          cachedStatistics = statistics;
+          cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+        }
+        return statistics;
       })
-      .finally(() => { refreshPromise = null; });
+      .finally(() => {
+        if (refreshPromise === pendingRequest) refreshPromise = null;
+      });
+    refreshPromise = pendingRequest;
   }
   return refreshPromise;
 }
 
-module.exports = { getPublicStatistics, publicStatistics };
+function invalidatePublicStatistics() {
+  cacheVersion += 1;
+  cachedStatistics = null;
+  cacheExpiresAt = 0;
+  refreshPromise = null;
+}
+
+module.exports = { getPublicStatistics, invalidatePublicStatistics, publicStatistics };

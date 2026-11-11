@@ -4,7 +4,7 @@ const emailService = require('../services/emailService');
 const publicStatisticsService = require('../services/publicStatisticsService');
 
 async function getPublicStatistics(req, res) {
-  res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  res.set('Cache-Control', 'public, max-age=5, stale-while-revalidate=10');
   return res.json(await publicStatisticsService.getPublicStatistics());
 }
 
@@ -36,6 +36,7 @@ async function createComplaint(req, res) {
   } catch (error) {
     return res.status(error.status || 400).json({ message: error.message });
   }
+  publicStatisticsService.invalidatePublicStatistics();
 
   try {
     await emailService.sendComplaintReceipt({
@@ -112,6 +113,7 @@ async function updateStaffComplaint(req, res) {
     if (!complaint) {
       return res.status(409).json({ message: 'Aduan tidak ditemukan, tidak dapat diakses, sudah ditutup, atau pembaruannya tidak valid.' });
     }
+    publicStatisticsService.invalidatePublicStatistics();
 
     let emailSent = false;
     try {
@@ -138,6 +140,7 @@ async function deleteStaffComplaints(req, res) {
 
   try {
     const deletedCodes = await complaintService.deleteStaffComplaints(req.body?.codes || [], req.user);
+    if (deletedCodes.length) publicStatisticsService.invalidatePublicStatistics();
     return res.json({ deletedCodes });
   } catch (error) {
     return res.status(error.status || 400).json({ message: error.message });

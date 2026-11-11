@@ -1498,11 +1498,11 @@ body:not(.is-admin) .row-unit { display: none; }
 .report-subhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .report-subhead h3 { font-size: 14px; font-weight: 800; }
 .report-subhead > span { color: var(--muted); font-size: 11px; }
-.trend-chart { display: flex; min-height: 190px; align-items: stretch; gap: 7px; overflow-x: auto; padding: 12px 3px 0; border-bottom: 1px solid var(--border); }
-.trend-column { display: grid; min-width: 38px; flex: 1 0 38px; grid-template-rows: 16px minmax(90px, 1fr) 24px; align-items: end; text-align: center; }
+.trend-chart { display: flex; min-height: 220px; align-items: stretch; gap: 8px; overflow-x: auto; padding: 12px 3px 0; border-bottom: 1px solid var(--border); }
+.trend-column { display: grid; min-width: 38px; flex: 1 0 38px; grid-template-rows: 18px 150px 32px; align-items: end; text-align: center; }
 .trend-value { color: var(--muted); font-size: 10px; }
-.trend-bar { display: block; width: min(26px, 75%); height: var(--bar-height); justify-self: center; align-self: end; border-radius: 5px 5px 0 0; background: var(--green); }
-.trend-column small { padding-top: 6px; color: var(--muted); font-size: 9px; white-space: nowrap; }
+.trend-bar { display: block; width: min(38px, 70%); height: var(--bar-height); justify-self: center; align-self: end; border-radius: 5px 5px 0 0; background: var(--green); }
+.trend-column small { padding-top: 6px; color: var(--muted); font-size: 9px; line-height: 1.2; white-space: nowrap; }
 .report-history { min-width: 0; }
 .report-history .activity-list { max-height: 230px; overflow-y: auto; }
 .report-history .activity-list li { padding: 9px 0; }
@@ -1559,7 +1559,7 @@ body:not(.is-admin) .row-unit { display: none; }
 .icon-button:hover { background: var(--surface-3); border-color: var(--border-strong); transform: rotate(90deg); }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Toasts Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
-.toast-container { position: fixed; right: 18px; bottom: 18px; z-index: 200; display: grid; gap: 9px; width: min(92vw, 360px); pointer-events: none; }
+.toast-container { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 18px); left: 50%; z-index: 200; display: grid; gap: 9px; width: min(92vw, 420px); transform: translateX(-50%); pointer-events: none; }
 .toast {
   display: flex;
   align-items: flex-start;
@@ -1795,7 +1795,7 @@ body:not(.is-admin) .row-unit { display: none; }
   .modal-card { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; }
   .modal-actions { flex-direction: column-reverse; }
   .modal-actions .btn { width: 100%; }
-  .toast-container { right: 12px; left: 12px; bottom: 12px; width: auto; }
+  .toast-container { top: calc(env(safe-area-inset-top, 0px) + 12px); width: calc(100vw - 24px); }
 }
 
 @media (max-width: 420px) {
