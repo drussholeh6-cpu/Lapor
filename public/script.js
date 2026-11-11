@@ -588,7 +588,7 @@ function renderPublicStatistics(data) {
     const date = new Date(data.generatedAt);
     updated.textContent = `Diperbarui ${new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(date)} WIB`;
   }
-  renderStatisticsMap();
+  // renderStatisticsMap dipanggil oleh ensureStatisticsMap setelah peta siap
 }
 
 async function loadPublicStatistics() {
@@ -598,7 +598,14 @@ async function loadPublicStatistics() {
     .then((data) => {
       publicStatisticsData = data;
       renderPublicStatistics(data);
-      ensureStatisticsMap();
+      // Render ulang peta setelah data masuk; juga invalidate size bila container baru terlihat
+      if (statisticsMap) {
+        renderStatisticsMap();
+        window.requestAnimationFrame(() => {
+          statisticsMap?.invalidateSize();
+          window.setTimeout(() => statisticsMap?.invalidateSize(), 200);
+        });
+      }
       return data;
     })
     .catch((error) => {
@@ -1462,7 +1469,11 @@ function ensurePublicMap() {
     if (publicMap) publicMap.markers = L.layerGroup().addTo(publicMap);
   }
   if (publicMap) {
-    renderPublicMap();
+    window.requestAnimationFrame(() => {
+      publicMap?.invalidateSize();
+      renderPublicMap();
+      window.setTimeout(() => publicMap?.invalidateSize(), 200);
+    });
     requestUserLocation()
       .then(() => centerMapsOnUser())
       .catch(() => {
@@ -1477,8 +1488,13 @@ function ensureStatisticsMap() {
     if (statisticsMap) statisticsMap.markers = L.layerGroup().addTo(statisticsMap);
   }
   if (statisticsMap) {
-    renderStatisticsMap();
-    window.requestAnimationFrame(() => statisticsMap?.invalidateSize());
+    // Panggil invalidateSize dua kali: segera dan setelah layout selesai
+    // supaya Leaflet mengukur container yang mungkin baru muncul di DOM
+    window.requestAnimationFrame(() => {
+      statisticsMap?.invalidateSize();
+      renderStatisticsMap();
+      window.setTimeout(() => statisticsMap?.invalidateSize(), 200);
+    });
   }
 }
 
@@ -2829,8 +2845,11 @@ async function initialize() {
 
   tickets = await loadPublicTickets();
   renderBoard();
+
+  // Muat statistik publik lalu inisialisasi peta setelah data tersedia
+  await loadPublicStatistics();
   ensureStatisticsMap();
-  loadPublicStatistics();
+
   window.setInterval(() => {
     if (!document.hidden) loadPublicStatistics();
   }, 60_000);
