@@ -30,6 +30,25 @@ function uidForEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function isValidStaffUsername(username) {
+  return /^[a-z0-9][a-z0-9._-]{2,31}$/.test(String(username || ''));
+}
+
+function emailForUsername(username) {
+  return `${username}@username.lacak-aduan.invalid`;
+}
+
+function resolveStaffIdentifier(identifier) {
+  const normalized = normalizeText(identifier).toLowerCase();
+  if (isValidEmail(normalized) && normalized.length <= 160) {
+    return { email: normalized, username: null };
+  }
+  if (isValidStaffUsername(normalized)) {
+    return { email: emailForUsername(normalized), username: normalized };
+  }
+  return { email: '', username: null };
+}
+
 async function listAllAuthUsers(admin) {
   const users = [];
   const perPage = 1000;
@@ -50,11 +69,11 @@ async function listAllAuthUsers(admin) {
 
 function normalizeStaffPayload(input = {}, actor = null) {
   const name = normalizeText(input.name || input.staffName || '').replace(/\s+/g, ' ');
-  const email = uidForEmail(input.email || '');
+  const { email, username } = resolveStaffIdentifier(input.identifier || input.email || '');
   const requestedRole = ['admin', 'petugas'].includes(input.role) ? input.role : 'petugas';
   const role = actor?.role === 'admin' ? requestedRole : 'petugas';
   const unit = role === 'admin' ? '' : normalizeText(input.unit || '').replace(/\s+/g, ' ');
-  return { name, email, role, unit };
+  return { name, email, username, role, unit };
 }
 
 async function getTrustedStaffProfile(user) {
@@ -111,6 +130,7 @@ async function listStaffAccounts() {
     merged.push({
       id: profile.id || authUser?.id || email,
       email,
+      username: profile.username || authUser?.user_metadata?.username || '',
       name: profile.name || authUser?.user_metadata?.staffName || authUser?.user_metadata?.name || authUser?.email || profile.email,
       role: profile.role || authUser?.app_metadata?.role || authUser?.user_metadata?.role || 'petugas',
       unit: profile.unit || authUser?.app_metadata?.unit || authUser?.user_metadata?.unit || '',
@@ -130,6 +150,7 @@ async function listStaffAccounts() {
     merged.push({
       id: user.id,
       email,
+      username: user.user_metadata?.username || '',
       name: user.user_metadata?.staffName || user.user_metadata?.name || user.email || 'Petugas',
       role,
       unit,
@@ -147,15 +168,15 @@ async function registerStaffAccount(input = {}, actor = null) {
     throw new AppError('Hanya admin yang dapat mendaftarkan akun petugas.', { status: 403, code: 'AUTH_FORBIDDEN' });
   }
 
-  const { name, email, role, unit } = normalizeStaffPayload(input, actor);
+  const { name, email, username, role, unit } = normalizeStaffPayload(input, actor);
   const password = String(input.password || '');
 
   if (!name || name.length < 2 || name.length > 80) {
     throw new AppError('Nama petugas harus diisi dengan benar.', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
-  if (!isValidEmail(email)) {
-    throw new AppError('Email petugas tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
+  if (!email) {
+    throw new AppError('Masukkan email yang valid atau username (3-32 karakter: huruf, angka, titik, garis bawah, atau tanda hubung).', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
   if (!password || password.length < 6 || password.length > 128) {
@@ -169,6 +190,20 @@ async function registerStaffAccount(input = {}, actor = null) {
   }
 
   const admin = supabaseAdmin();
+  if (username) {
+    const { data: duplicateProfile, error: duplicateProfileError } = await admin
+      .from(STAFF_TABLE)
+      .select('email')
+      .eq('username', username)
+      .maybeSingle();
+    if (duplicateProfileError) {
+      throw new AppError('Gagal memeriksa username petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
+    }
+    if (duplicateProfile && uidForEmail(duplicateProfile.email) !== email) {
+      throw new AppError('Username tersebut sudah digunakan akun lain.', { status: 409, code: 'STAFF_USERNAME_CONFLICT' });
+    }
+  }
+
   let users;
   try {
     users = await listAllAuthUsers(admin);
@@ -185,6 +220,7 @@ async function registerStaffAccount(input = {}, actor = null) {
         role: chosenRole,
         unit: chosenUnit,
         staffName: name,
+        username,
       },
       user_metadata: {
         ...(existingUser.user_metadata || {}),
@@ -192,6 +228,7 @@ async function registerStaffAccount(input = {}, actor = null) {
         unit: chosenUnit,
         staffName: name,
         name,
+        username,
       },
     };
 
@@ -203,6 +240,7 @@ async function registerStaffAccount(input = {}, actor = null) {
     const { error: profileError } = await admin.from(STAFF_TABLE)
       .upsert({
         email,
+        username,
         name,
         role: chosenRole,
         unit: chosenUnit,
@@ -214,7 +252,7 @@ async function registerStaffAccount(input = {}, actor = null) {
       throw new AppError('Gagal menyimpan profil petugas.', { status: 500, code: 'STAFF_PROFILE_WRITE_FAILED' });
     }
 
-    return { email, name, role: chosenRole, unit: chosenUnit, status: 'registered' };
+    return { email, username, identifier: username || email, name, role: chosenRole, unit: chosenUnit, status: 'registered' };
   }
 
   const { data: createdUser, error: createError } = await admin.auth.admin.createUser({
@@ -226,11 +264,13 @@ async function registerStaffAccount(input = {}, actor = null) {
       staffName: name,
       role: chosenRole,
       unit: chosenUnit,
+      username,
     },
     app_metadata: {
       role: chosenRole,
       unit: chosenUnit,
       staffName: name,
+      username,
     },
   });
 
@@ -246,6 +286,7 @@ async function registerStaffAccount(input = {}, actor = null) {
   const { error: profileError } = await admin.from(STAFF_TABLE)
     .upsert({
       email,
+      username,
       name,
       role: chosenRole,
       unit: chosenUnit,
@@ -257,7 +298,7 @@ async function registerStaffAccount(input = {}, actor = null) {
     throw new AppError('Akun dibuat, tetapi profil petugas gagal disimpan.', { status: 500, code: 'STAFF_PROFILE_WRITE_FAILED' });
   }
 
-  return { email, name, role: chosenRole, unit: chosenUnit, status: 'registered' };
+  return { email, username, identifier: username || email, name, role: chosenRole, unit: chosenUnit, status: 'registered' };
 }
 
 async function updateStaffAccount(input = {}, actor = null) {
@@ -266,13 +307,13 @@ async function updateStaffAccount(input = {}, actor = null) {
   }
 
   const originalEmail = uidForEmail(input.originalEmail || '');
-  const { name, email, unit } = normalizeStaffPayload({ ...input, role: 'petugas' }, actor);
+  const { name, email, username, unit } = normalizeStaffPayload({ ...input, role: 'petugas' }, actor);
   const password = input.password === undefined || input.password === null
     ? ''
     : String(input.password);
 
-  if (!isValidEmail(originalEmail) || !isValidEmail(email) || email.length > 160) {
-    throw new AppError('Email petugas tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
+  if (!isValidEmail(originalEmail) || !email) {
+    throw new AppError('Masukkan email yang valid atau username (3-32 karakter: huruf, angka, titik, garis bawah, atau tanda hubung).', { status: 400, code: 'VALIDATION_ERROR' });
   }
   if (!name || name.length < 2 || name.length > 80) {
     throw new AppError('Nama petugas harus berisi 2 sampai 80 karakter.', { status: 400, code: 'VALIDATION_ERROR' });
@@ -337,6 +378,19 @@ async function updateStaffAccount(input = {}, actor = null) {
   if (duplicateUser || (duplicateProfile && email !== originalEmail)) {
     throw new AppError('Email tersebut sudah digunakan akun lain.', { status: 409, code: 'STAFF_EMAIL_CONFLICT' });
   }
+  if (username) {
+    const { data: duplicateUsername, error: duplicateUsernameError } = await admin
+      .from(STAFF_TABLE)
+      .select('email')
+      .eq('username', username)
+      .maybeSingle();
+    if (duplicateUsernameError) {
+      throw new AppError('Gagal memeriksa username petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
+    }
+    if (duplicateUsername && uidForEmail(duplicateUsername.email) !== originalEmail) {
+      throw new AppError('Username tersebut sudah digunakan akun lain.', { status: 409, code: 'STAFF_USERNAME_CONFLICT' });
+    }
+  }
 
   if (authUser) {
     const userMetadata = {
@@ -345,12 +399,14 @@ async function updateStaffAccount(input = {}, actor = null) {
       staffName: name,
       role: 'petugas',
       unit,
+      username,
     };
     const appMetadata = {
       ...(authUser.app_metadata || {}),
       role: 'petugas',
       unit,
       staffName: name,
+      username,
     };
     const updates = {
       email,
@@ -368,6 +424,7 @@ async function updateStaffAccount(input = {}, actor = null) {
 
   const profileUpdates = {
     email,
+    username,
     name,
     role: 'petugas',
     unit,
@@ -387,7 +444,7 @@ async function updateStaffAccount(input = {}, actor = null) {
     );
   }
 
-  return { email, name, role: 'petugas', unit, status: authUser ? 'registered' : 'pending' };
+  return { email, username, identifier: username || email, name, role: 'petugas', unit, status: authUser ? 'registered' : 'pending' };
 }
 
 async function deleteStaffAccount(input = {}, actor = null) {
@@ -463,12 +520,26 @@ async function deleteStaffAccount(input = {}, actor = null) {
   return { email };
 }
 
-async function login(email, password) {
-  const normalizedEmail = normalizeText(email).toLowerCase();
+async function login(identifier, password) {
+  const normalizedIdentifier = normalizeText(identifier).toLowerCase();
   const normalizedPassword = String(password || '');
 
-  if (!isValidEmail(normalizedEmail) || !normalizedPassword || normalizedPassword.length > 256) {
-    throw new AppError('Email dan kata sandi wajib diisi.', { status: 400, code: 'VALIDATION_ERROR' });
+  const isEmail = isValidEmail(normalizedIdentifier);
+  if ((!isEmail && !isValidStaffUsername(normalizedIdentifier)) || !normalizedPassword || normalizedPassword.length > 256) {
+    throw new AppError('Email atau username dan kata sandi wajib diisi.', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  let normalizedEmail = normalizedIdentifier;
+  if (!isEmail) {
+    const { data: profile, error: profileError } = await supabaseAdmin()
+      .from(STAFF_TABLE)
+      .select('email')
+      .eq('username', normalizedIdentifier)
+      .maybeSingle();
+    if (profileError) {
+      throw new AppError('Gagal memeriksa username petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
+    }
+    normalizedEmail = profile?.email || emailForUsername(normalizedIdentifier);
   }
 
   const auth = supabaseAuth();
@@ -505,7 +576,8 @@ async function login(email, password) {
     sessionToken: data.session.access_token,
     user: {
       name: trustedProfile.name || userData.user.user_metadata?.staffName || userData.user.user_metadata?.name || userData.user.email || 'Petugas',
-      email: trustedProfile.email || userData.user.email || '',
+      email: trustedProfile.username ? '' : (trustedProfile.email || userData.user.email || ''),
+      username: trustedProfile.username || userData.user.user_metadata?.username || '',
       role,
       unit: trustedProfile.unit || '',
     },
