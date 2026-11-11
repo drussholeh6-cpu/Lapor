@@ -51,6 +51,18 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const nowIso = () => new Date().toISOString();
 
+// Converts an ISO timestamp to a local date string (YYYY-MM-DD) using the browser's timezone.
+// Fixes off-by-one day errors for users in UTC+ timezones (e.g. WIB = UTC+7).
+const localDateStr = (isoString) => {
+  const d = new Date(isoString);
+  if (!Number.isFinite(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const localTodayStr = () => localDateStr(new Date().toISOString());
+
 const escapeHtml = (value) =>
   String(value ?? '').replace(
     /[&<>"']/g,
@@ -968,7 +980,7 @@ function filteredDashboardCases(cases) {
   const to = $('report-to')?.value || '';
 
   return cases.filter((ticket) => {
-    const date = String(ticket.at || '').slice(0, 10);
+    const date = localDateStr(ticket.at);
     return (!from || date >= from)
       && (!to || date <= to);
   });
@@ -980,10 +992,10 @@ function renderTrendChart(cases) {
 
   const grouping = $('report-grouping')?.value || 'month';
   const dateKeys = cases
-    .map((ticket) => String(ticket.at || '').slice(0, 10))
+    .map((ticket) => localDateStr(ticket.at))
     .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
     .sort();
-  const todayDate = new Date().toISOString().slice(0, 10);
+  const todayDate = localTodayStr();
   const hasCustomRange = Boolean($('report-from')?.value || $('report-to')?.value);
   const to = $('report-to')?.value || todayDate;
   let defaultStart = new Date(`${todayDate}T12:00:00Z`);
@@ -997,8 +1009,8 @@ function renderTrendChart(cases) {
   }
   const defaultFrom = defaultStart.toISOString().slice(0, 10);
   const from = $('report-from')?.value || (hasCustomRange ? dateKeys[0] || todayDate : defaultFrom);
-  const start = new Date(`${from}T12:00:00Z`);
-  const end = new Date(`${to}T12:00:00Z`);
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
   const title = $('trend-title');
   if (title) {
     title.textContent = `Tren pengaduan per ${grouping === 'day' ? 'tanggal' : grouping === 'year' ? 'tahun' : 'bulan'}`;
@@ -1047,8 +1059,8 @@ function renderTrendChart(cases) {
 
   const counts = new Map(periods.map((period) => [period.key, 0]));
   cases.forEach((ticket) => {
-    const date = String(ticket.at || '').slice(0, 10);
-    if (date < from || date > to) return;
+    const date = localDateStr(ticket.at);
+    if (!date || date < from || date > to) return;
     const key = grouping === 'day' ? date : grouping === 'year' ? date.slice(0, 4) : date.slice(0, 7);
     if (counts.has(key)) counts.set(key, counts.get(key) + 1);
   });
@@ -1066,7 +1078,7 @@ function renderTrendChart(cases) {
 
   const summary = $('trend-summary');
   if (summary) summary.textContent = `${cases.filter((ticket) => {
-    const date = String(ticket.at || '').slice(0, 10);
+    const date = localDateStr(ticket.at);
     return date >= from && date <= to;
   }).length} aduan pada filter`;
 }
