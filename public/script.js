@@ -1004,6 +1004,8 @@ function renderTrendChart(cases) {
     title.textContent = `Tren pengaduan per ${grouping === 'day' ? 'tanggal' : grouping === 'year' ? 'tahun' : 'bulan'}`;
   }
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start > end) {
+    chart.dataset.fit = 'false';
+    chart.style.removeProperty('--trend-columns');
     chart.innerHTML = '<p class="empty-row">Rentang tanggal tidak valid. Periksa kembali tanggal awal dan akhir.</p>';
     const summary = $('trend-summary');
     if (summary) summary.textContent = '0 aduan pada filter';
@@ -1052,6 +1054,8 @@ function renderTrendChart(cases) {
   });
 
   const max = Math.max(1, ...counts.values());
+  chart.dataset.fit = String(periods.length > 0 && periods.length <= 12);
+  chart.style.setProperty('--trend-columns', periods.length);
   chart.innerHTML = periods.length
     ? periods.map((period) => {
       const count = counts.get(period.key);
