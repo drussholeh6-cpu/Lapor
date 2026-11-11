@@ -404,10 +404,10 @@
         <div class="login-card">
           <p class="label-chip soft">Masuk petugas</p>
           <h2>Selamat datang kembali.</h2>
-          <p class="login-sub">Gunakan email atau username dan kata sandi yang diberikan admin.</p>
+          <p class="login-sub">Gunakan email dan kata sandi yang diberikan admin.</p>
           <form id="f-login" autocomplete="on">
-            <label for="login-user">Email atau username</label>
-            <input id="login-user" type="text" required autocomplete="username" placeholder="nama@instansi.go.id atau username">
+            <label for="login-user">Email</label>
+            <input id="login-user" type="email" required maxlength="160" autocomplete="email" placeholder="nama@instansi.go.id">
             <label for="login-pass">Kata sandi</label>
             <div class="pass-wrap">
               <input id="login-pass" type="password" required autocomplete="current-password" placeholder="Masukkan kata sandi">
@@ -608,9 +608,8 @@
               <h3>Tambah petugas</h3>
               <label for="register-name">Nama lengkap</label>
               <input id="register-name" type="text" required maxlength="80" placeholder="Nama petugas">
-              <label for="register-identifier">Email atau username</label>
-              <input id="register-identifier" type="text" required maxlength="160" placeholder="petugas@desa.go.id atau username">
-              <p class="hint">Username harus 3-32 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.</p>
+              <label for="register-email">Email</label>
+              <input id="register-email" type="email" required maxlength="160" placeholder="petugas@desa.go.id">
               <label for="register-unit">Unit kerja</label>
               <select id="register-unit">
                 <option value="Seksi Pemeliharaan Jalan">Seksi Pemeliharaan Jalan</option>
@@ -685,8 +684,8 @@
       <input id="edit-staff-original-email" type="hidden">
       <label for="edit-staff-name">Nama lengkap</label>
       <input id="edit-staff-name" required maxlength="80">
-      <label for="edit-staff-email">Email atau username</label>
-      <input id="edit-staff-email" type="text" required maxlength="160">
+      <label for="edit-staff-email">Email</label>
+      <input id="edit-staff-email" type="email" required maxlength="160">
       <label for="edit-staff-unit">Unit kerja</label>
       <select id="edit-staff-unit">
         <option value="Seksi Pemeliharaan Jalan">Seksi Pemeliharaan Jalan</option>

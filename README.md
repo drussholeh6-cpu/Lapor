@@ -15,7 +15,7 @@ Lacak Aduan adalah aplikasi web pengaduan publik untuk Kota Lowokwaru. Warga dap
 
 ### Untuk petugas dan admin
 
-- Masuk menggunakan akun yang dibuat oleh admin; pendaftaran publik tidak tersedia.
+- Masuk menggunakan email dan kata sandi akun yang dibuat oleh admin; pendaftaran publik tidak tersedia.
 - Petugas melihat dan menangani aduan sesuai unitnya. Admin dapat mengakses seluruh aduan.
 - Memfilter aduan menurut status dan prioritas, mengubah prioritas/unit/status, menyertakan alasan saat menolak aduan, dan mencatat tindak lanjut dengan bukti foto.
 - Memilih visibilitas catatan dan bukti tindak lanjut: publik atau internal.

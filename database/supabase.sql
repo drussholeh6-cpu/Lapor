@@ -20,7 +20,6 @@ create table if not exists complaints (
 create table if not exists staff_profiles (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
-  username text,
   name text not null,
   role text not null default 'petugas' check (role in ('admin', 'petugas')),
   unit text not null default '',
@@ -29,11 +28,6 @@ create table if not exists staff_profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
-alter table staff_profiles add column if not exists username text;
-create unique index if not exists staff_profiles_username_unique
-  on staff_profiles (lower(username))
-  where username is not null;
 
 create or replace function set_updated_at()
 returns trigger as $$

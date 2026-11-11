@@ -2,7 +2,7 @@ const authService = require('../services/authService');
 
 async function login(req, res) {
   try {
-    const result = await authService.login(req.body?.identifier || req.body?.email, req.body?.password);
+    const result = await authService.login(req.body?.email, req.body?.password);
     res.cookie(result.sessionCookie, result.sessionToken, result.cookieOptions);
     return res.json({ user: result.user });
   } catch (error) {
@@ -23,7 +23,6 @@ async function registerStaff(req, res) {
   try {
     const result = await authService.registerStaffAccount({
       name: req.body?.name,
-      identifier: req.body?.identifier,
       email: req.body?.email,
       password: req.body?.password,
       role: req.body?.role || 'petugas',
@@ -40,7 +39,6 @@ async function updateStaff(req, res) {
     const result = await authService.updateStaffAccount({
       originalEmail: req.body?.originalEmail,
       name: req.body?.name,
-      identifier: req.body?.identifier,
       email: req.body?.email,
       unit: req.body?.unit,
       password: req.body?.password,
