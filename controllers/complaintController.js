@@ -156,15 +156,6 @@ async function submitResidentReply(req, res) {
   }
 }
 
-async function submitRating(req, res) {
-  try {
-    const complaint = await complaintService.submitRating(req.params.code, req.body?.score, req.body?.comment);
-    return res.json(complaint);
-  } catch (error) {
-    return res.status(error.status || 400).json({ message: error.message });
-  }
-}
-
 module.exports = {
   getPublicStatistics,
   createComplaint,
@@ -175,7 +166,6 @@ module.exports = {
   listStaffComplaints,
   getStaffComplaintByCode,
   resendComplaintReceipt,
-  submitRating,
   submitResidentReply,
   updateStaffComplaint,
 };

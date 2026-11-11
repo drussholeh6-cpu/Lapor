@@ -983,14 +983,6 @@ main.shell { padding-block: 24px 48px; }
 .rejection-field .hint { margin-top: 6px; }
 
 /* Rating */
-.rating-form { display: grid; gap: 10px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); }
-.rating-form > label { margin: 0; }
-.rating-controls { display: flex; gap: 10px; flex-wrap: wrap; }
-.rating-controls select { max-width: 280px; }
-.rating-thanks { display: grid; gap: 4px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
-.rating-thanks b { color: #d4960f; font-size: 20px; letter-spacing: 3px; }
-.rating-thanks span, .rating-thanks p { font-size: 13px; }
-.rating-thanks p { margin-top: 4px; color: var(--muted); }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Board / map / table Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 #lacak { overflow-x: clip; }
@@ -1690,8 +1682,6 @@ body:not(.is-admin) .row-unit { display: none; }
   .coordinates { grid-template-columns: auto minmax(0, 1fr); }
   .track-input { flex-direction: column; align-items: stretch; }
   .track-input .btn { width: 100%; }
-  .rating-controls { flex-direction: column; }
-  .rating-controls select { max-width: none; }
   .workspace-head { flex-direction: column; }
   .workspace-head .btn { align-self: flex-start; }
   .workspace-nav {

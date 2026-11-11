@@ -66,6 +66,22 @@ test('does not publish ranking or heatmap cells with fewer than three records', 
   assert.equal(result.heatmap.length, 0);
 });
 
+test('does not expose previously saved ratings in public complaint data', () => {
+  const complaintData = {
+    code: 'ADU-2611-000001',
+    cat: 'Sampah',
+    loc: 'Jalan Merdeka',
+    text: 'Sampah belum diangkut.',
+    at: '2026-11-01T00:00:00.000Z',
+    priority: 'normal',
+    unit: 'Dinas Kebersihan',
+    rating: { score: 5, comment: 'Pelayanan bagus.' },
+    log: [{ s: 0, at: '2026-11-01T00:00:00.000Z', visibility: 'public' }],
+  };
+
+  assert.equal(Object.hasOwn(complaintModel.publicComplaint(complaintData), 'rating'), false);
+});
+
 test('refreshes cached public statistics after complaint changes', async () => {
   const originalListComplaints = complaintModel.listComplaints;
   let complaints = [];

@@ -356,6 +356,7 @@ function normalizeTicket(input) {
   ticket.priority = ['normal', 'high', 'urgent'].includes(ticket.priority)
     ? ticket.priority
     : 'normal';
+  delete ticket.rating;
   ticket.unit = ticket.unit || config.unit;
   ticket.waitingForInfo = Boolean(ticket.waitingForInfo);
   ticket.audit = Array.isArray(ticket.audit) ? ticket.audit : [];
@@ -734,15 +735,6 @@ function timeline(ticket) {
   }).join('');
 }
 
-function ratingMarkup(ticket) {
-  if (ticket.rating) {
-    const score = Number(ticket.rating.score) || 0;
-    return `<div class="rating-thanks"><b>${'★'.repeat(score)}${'☆'.repeat(Math.max(0, 5 - score))}</b><span>Terima kasih atas penilaian Anda.</span>${ticket.rating.comment ? `<p>${escapeHtml(ticket.rating.comment)}</p>` : ''}</div>`;
-  }
-
-  return `<form class="rating-form" data-code="${escapeHtml(ticket.code)}"><label for="rating-score">Bagaimana pengalaman layanan ini?</label><div class="rating-controls"><select id="rating-score" name="score" required><option value="">Pilih nilai</option><option value="5">5 — Sangat puas</option><option value="4">4 — Puas</option><option value="3">3 — Cukup</option><option value="2">2 — Kurang puas</option><option value="1">1 — Tidak puas</option></select><button class="btn btn-dark" type="submit">Kirim penilaian</button></div><label for="rating-comment">Komentar <span class="optional">(opsional)</span></label><textarea id="rating-comment" name="comment" maxlength="300" placeholder="Ceritakan pengalaman Anda."></textarea></form>`;
-}
-
 function evidenceUrl(value) {
   if (typeof value !== 'string' || !value.trim()) return '';
   const trimmed = value.trim();
@@ -790,7 +782,7 @@ function slip(ticket) {
 
   const evidence = evidenceMarkup(ticket.attachments);
 
-  return `<article class="slip"><div class="slip-h"><div><div class="code">${escapeHtml(ticket.code)}</div><p class="meta">${escapeHtml(ticket.cat)}, ${escapeHtml(ticket.loc)}<br>Masuk ${formatDate(ticket.at)}<br>${location}</p></div><div class="stamp ${statusClass(ticket)}">${escapeHtml(statusLabel(ticket))}</div></div><div class="slip-b"><p class="issue">“${escapeHtml(ticket.text)}”</p><div class="case-tags"><span class="priority-tag ${priorityClass(ticket.priority)}">Prioritas ${priorityLabel(ticket.priority)}</span><span class="unit-tag">${escapeHtml(ticket.unit)}</span></div>${evidence ? `<div class="evidence-box">${evidence}</div>` : ''}<div class="age"><div class="${late ? 'late-text' : ''}">${ageText}</div><div class="bar ${late ? 'over' : ''}" role="img" aria-label="${progress} persen dari target waktu"><i style="width:${progress}%"></i></div></div><ol class="tl">${timeline(ticket)}${rejection}</ol>${isClosed(ticket) ? ratingMarkup(ticket) : ''}</div></article>`;
+  return `<article class="slip"><div class="slip-h"><div><div class="code">${escapeHtml(ticket.code)}</div><p class="meta">${escapeHtml(ticket.cat)}, ${escapeHtml(ticket.loc)}<br>Masuk ${formatDate(ticket.at)}<br>${location}</p></div><div class="stamp ${statusClass(ticket)}">${escapeHtml(statusLabel(ticket))}</div></div><div class="slip-b"><p class="issue">“${escapeHtml(ticket.text)}”</p><div class="case-tags"><span class="priority-tag ${priorityClass(ticket.priority)}">Prioritas ${priorityLabel(ticket.priority)}</span><span class="unit-tag">${escapeHtml(ticket.unit)}</span></div>${evidence ? `<div class="evidence-box">${evidence}</div>` : ''}<div class="age"><div class="${late ? 'late-text' : ''}">${ageText}</div><div class="bar ${late ? 'over' : ''}" role="img" aria-label="${progress} persen dari target waktu"><i style="width:${progress}%"></i></div></div><ol class="tl">${timeline(ticket)}${rejection}</ol></div></article>`;
 }
 
 async function showTicket(code) {
@@ -898,7 +890,6 @@ function setStaffView() {
   document.body.dataset.role = user ? user.role : 'public';
   document.body.classList.toggle('is-admin', Boolean(isAdmin));
 
-  $('kpi-rating').hidden = Boolean(isAdmin);
   $('kpi-units').hidden = !isAdmin;
   $('staff-admin-panel').hidden = !isAdmin;
   $('bulk-actions').hidden = !isAdmin;
@@ -953,8 +944,6 @@ function renderDashboard() {
   renderDashboardReport(allCases);
   const cases = filteredDashboardCases(allCases);
   const isAdmin = user.role === 'admin';
-  const finished = cases.filter((ticket) => baseStatus(ticket) === 3);
-  const rated = finished.filter((ticket) => ticket.rating);
   const active = cases.filter((ticket) => !isClosed(ticket)).length;
   const late = cases.filter(isLate).length;
   const urgent = cases.filter((ticket) => ticket.priority !== 'normal' && !isClosed(ticket)).length;
@@ -966,15 +955,6 @@ function renderDashboard() {
   setMetric('metric-urgent', urgent);
   setMetric('metric-average', average);
   setMetric('metric-units', units);
-
-  const ratingElement = $('metric-rating');
-  if (ratingElement) {
-    ratingElement.textContent = rated.length
-      ? `${(rated.reduce((sum, ticket) => sum + Number(ticket.rating.score || 0), 0) / rated.length).toFixed(1)} / 5`
-      : '-';
-  }
-  const ratingCount = $('metric-rating-count');
-  if (ratingCount) ratingCount.textContent = rated.length ? `${rated.length} penilaian` : 'belum ada penilaian';
 
   renderStaffTable(allCases);
   renderActivity(allCases);
@@ -1092,7 +1072,9 @@ function renderDashboardHistory(cases) {
   if (!list) return;
 
   const activities = cases
-    .flatMap((ticket) => ticket.audit.map((event) => ({ ...event, code: ticket.code })))
+    .flatMap((ticket) => ticket.audit
+      .filter((event) => event.kind !== 'rating')
+      .map((event) => ({ ...event, code: ticket.code })))
     .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
     .slice(0, 6);
 
@@ -1354,7 +1336,9 @@ function renderActivity(cases) {
   if (!list) return;
 
   const activities = cases
-    .flatMap((ticket) => ticket.audit.map((event) => ({ ...event, code: ticket.code })))
+    .flatMap((ticket) => ticket.audit
+      .filter((event) => event.kind !== 'rating')
+      .map((event) => ({ ...event, code: ticket.code })))
     .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
     .slice(0, 10);
 
@@ -2017,37 +2001,6 @@ async function submitNewTicket(event) {
   toast('Aduan terkirim dan nomor aduan telah dikirim ke email Anda.', 'success', 6000);
 }
 
-/* ─── Resident ratings ─── */
-async function submitRating(event) {
-  const form = event.target.closest('.rating-form');
-  if (!form) return;
-  event.preventDefault();
-
-  const ticket = tickets.find((item) => item.code === form.dataset.code);
-  if (!ticket || !isClosed(ticket) || ticket.rating) return;
-
-  const data = new FormData(form);
-  const score = Number(data.get('score'));
-  const button = form.querySelector('button[type="submit"]');
-  setLoading(button, true, 'Mengirim…');
-
-  try {
-    const updated = await apiRequest(`/complaints/${ticket.code}/ratings`, {
-      method: 'POST',
-      body: JSON.stringify({ score, comment: String(data.get('comment') || '').trim() }),
-    });
-    const normalized = normalizeTicket(updated);
-    const index = tickets.findIndex((item) => item.code === normalized.code);
-    if (index >= 0) tickets[index] = normalized;
-    toast('Penilaian tersimpan. Terima kasih.', 'success');
-    await showTicket(ticket.code);
-  } catch (error) {
-    toast(error.message, 'error');
-  } finally {
-    setLoading(button, false);
-  }
-}
-
 /* ─── Auth ─── */
 async function submitLogin(event) {
   event.preventDefault();
@@ -2140,7 +2093,6 @@ function mergePublicTicket(updated) {
     priority: updated.priority,
     unit: updated.unit,
     coordinates: updated.coordinates,
-    rating: updated.rating,
     log: publicLog,
     attachments,
   });
@@ -2830,10 +2782,6 @@ function bindEvents() {
     }
     const button = event.target.closest('button[data-delete-staff]');
     if (button) deleteStaffAccount(button);
-  });
-
-  $('result')?.addEventListener('submit', (event) => {
-    if (event.target.matches('.rating-form')) submitRating(event);
   });
 
   $('locate-me')?.addEventListener('click', locateUser);

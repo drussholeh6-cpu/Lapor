@@ -11,7 +11,6 @@ Lacak Aduan adalah aplikasi web pengaduan publik untuk Kota Lowokwaru. Warga dap
 - Menambahkan foto bukti; gambar dikompres dan disimpan pada Supabase Storage.
 - Mendapat nomor aduan dan konfirmasi melalui email jika layanan email dikonfigurasi.
 - Melacak aduan, membaca status dan catatan yang ditujukan untuk warga, serta melihat riwayat tindak lanjut.
-- Memberi penilaian setelah aduan ditutup.
 - Melihat papan pemantauan, sebaran lokasi, serta statistik publik yang disinkronkan setiap 15 detik; peta statistik hanya menampilkan area agregat dengan sedikitnya tiga aduan.
 
 ### Untuk petugas dan admin
@@ -115,7 +114,6 @@ Semua endpoint backend diawali `/api`. Endpoint yang memerlukan sesi memakai aut
 | `POST` | `/api/complaints` | Mengirim aduan |
 | `POST` | `/api/complaints/:code/confirmation` | Mengirim ulang konfirmasi |
 | `POST` | `/api/complaints/:code/replies` | Membalas permintaan informasi |
-| `POST` | `/api/complaints/:code/ratings` | Memberi penilaian |
 
 ### Autentikasi dan pengelolaan akun
 

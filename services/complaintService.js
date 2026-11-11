@@ -31,6 +31,7 @@ function staffComplaintSummary(complaint) {
   const summary = { ...complaint };
   delete summary.evidence;
   delete summary.attachments;
+  delete summary.rating;
   summary.log = (complaint.log || []).map((item) => {
     const entry = { ...item };
     delete entry.evidence;
@@ -176,7 +177,9 @@ async function getStaffComplaintByCode(code, user) {
     addAttachment(entry.evidence, `Petugas · ${entry.by || 'Unit penanganan'}`, entry.at, entry.visibility || 'public');
   });
 
-  return { ...complaint, attachments };
+  const staffDetails = { ...complaint, attachments };
+  delete staffDetails.rating;
+  return staffDetails;
 }
 
 async function updateStaffComplaint(code, body, user) {
@@ -261,19 +264,6 @@ async function submitResidentReply(code, note) {
   return publicComplaint(complaint);
 }
 
-async function submitRating(code, score, comment) {
-  if (!validCode(code)) {
-    throw new AppError('Nomor aduan tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
-  }
-
-  const complaint = await complaintModel.addRating(String(code).toUpperCase(), Number(score), normalizeText(comment));
-  if (!complaint) {
-    throw new AppError('Aduan belum ditutup atau penilaian tidak valid.', { status: 409, code: 'CONFLICT' });
-  }
-
-  return publicComplaint(complaint);
-}
-
 module.exports = {
   CATEGORY_UNITS,
   VALID_UNITS,
@@ -285,7 +275,6 @@ module.exports = {
   listComplaints,
   listStaffComplaints,
   listStaffReportComplaints,
-  submitRating,
   submitResidentReply,
   updateStaffComplaint,
   validCode,

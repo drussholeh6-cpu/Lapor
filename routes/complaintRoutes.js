@@ -48,7 +48,6 @@ router.get('/challenge', challengeLimiter, (req, res) => res.json(issueMathChall
 router.post('/complaints', complaintSubmissionLimiter, verifyMathChallenge, asyncHandler(complaintController.createComplaint));
 router.post('/complaints/:code/confirmation', receiptResendLimiter, asyncHandler(complaintController.resendComplaintReceipt));
 router.post('/complaints/:code/replies', publicWriteLimiter, asyncHandler(complaintController.submitResidentReply));
-router.post('/complaints/:code/ratings', publicWriteLimiter, asyncHandler(complaintController.submitRating));
 router.get('/staff/complaints', requireStaff, asyncHandler(complaintController.listStaffComplaints));
 router.get('/staff/complaints/report.xlsx', requireStaff, asyncHandler(complaintController.exportStaffComplaintReport));
 router.get('/staff/complaints/:code', requireStaff, asyncHandler(complaintController.getStaffComplaintByCode));

@@ -34,7 +34,6 @@ function publicComplaint(complaint) {
     infoPrompt: complaint.waitingForInfo ? complaint.infoPrompt : '',
     infoRequestedAt: complaint.waitingForInfo ? complaint.infoRequestedAt : null,
     infoResponse: complaint.infoResponse || null,
-    rating: complaint.rating || null,
     log: (complaint.log || [])
       .filter((entry) => entry.visibility !== 'internal')
       .map((item) => {
@@ -161,7 +160,6 @@ async function createComplaint(input) {
     infoPrompt: '',
     infoRequestedAt: null,
     infoResponse: null,
-    rating: null,
     log: [{
       s: 0,
       at: now,
@@ -270,17 +268,6 @@ async function addResidentReply(code, note) {
   return saveComplaintUpdate(code, complaint);
 }
 
-async function addRating(code, score, comment) {
-  const current = await findComplaintByCode(code);
-  if (!current || !isClosed(current) || current.rating || !Number.isInteger(score) || score < 1 || score > 5) return null;
-
-  const complaint = cloneComplaintData(current);
-  complaint.rating = { score, comment: String(comment || '').slice(0, 300), at: new Date().toISOString() };
-  addAudit(complaint, 'rating', 'Warga', `Penilaian layanan ${score}/5 diterima.`);
-
-  return saveComplaintUpdate(code, complaint);
-}
-
 async function deleteComplaints(codes) {
   if (!codes.length) return [];
   const { data, error } = await realtimeDatabase()
@@ -294,7 +281,6 @@ async function deleteComplaints(codes) {
 }
 
 module.exports = {
-  addRating,
   addResidentReply,
   applyStaffAction,
   createComplaint,
