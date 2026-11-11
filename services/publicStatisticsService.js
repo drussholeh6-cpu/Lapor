@@ -9,7 +9,7 @@ const CATEGORY_TARGET_DAYS = {
   Lainnya: 7,
 };
 const DAY_MS = 86_400_000;
-const MIN_PUBLIC_CELL_COUNT = 3;
+const MIN_PUBLIC_CELL_COUNT = 1;
 const CACHE_TTL_MS = 10_000;
 let cachedStatistics = null;
 let cacheExpiresAt = 0;

@@ -1570,7 +1570,7 @@ function renderStatisticsMap() {
   const fallback = $('statistics-map-fallback');
   if (!publicStatisticsData.heatmap.length) {
     fallback.hidden = false;
-    fallback.textContent = 'Belum ada area dengan minimal 3 aduan untuk ditampilkan.';
+    fallback.textContent = 'Belum ada area aduan dengan titik koordinat lokasi untuk ditampilkan.';
     const view = defaultCenter();
     statisticsMap.setView(view.center, view.zoom);
     return;
