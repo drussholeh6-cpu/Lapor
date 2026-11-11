@@ -2017,7 +2017,6 @@ async function submitLogin(event) {
     const result = await apiRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify({
-        identifier: $('login-user').value.trim(),
         email: $('login-user').value.trim(),
         password: $('login-pass').value,
       }),
@@ -2345,16 +2344,14 @@ async function renderStaffDirectory() {
     list.innerHTML = data
       .map((staff) => {
         const status = staff.registered ? 'Terdaftar' : 'Belum dibuat';
-        const accountIdentifier = staff.identifier || staff.username || staff.email || 'Petugas';
-        const displaySub = staff.username ? `@${staff.username}` : (staff.email || '');
-        const targetEmail = staff.rawEmail || staff.email || staff.identifier;
+        const accountIdentifier = staff.email;
         const removeButton = staff.role === 'petugas'
-          ? `<button class="btn btn-danger btn-small" type="button" data-delete-staff="${escapeHtml(targetEmail)}" data-staff-label="${escapeHtml(accountIdentifier)}" aria-label="Hapus akun ${escapeHtml(staff.name || accountIdentifier)}">Hapus akun</button>`
+          ? `<button class="btn btn-danger btn-small" type="button" data-delete-staff="${escapeHtml(staff.email)}" data-staff-label="${escapeHtml(accountIdentifier)}" aria-label="Hapus akun ${escapeHtml(staff.name || accountIdentifier)}">Hapus akun</button>`
           : '';
         const editButton = staff.role === 'petugas'
-          ? `<button class="btn btn-ghost btn-small" type="button" data-edit-staff="${escapeHtml(targetEmail)}" data-staff-email="${escapeHtml(accountIdentifier)}" data-staff-name="${escapeHtml(staff.name || '')}" data-staff-unit="${escapeHtml(staff.unit || '')}" data-staff-registered="${staff.registered ? 'true' : 'false'}">Ubah</button>`
+          ? `<button class="btn btn-ghost btn-small" type="button" data-edit-staff="${escapeHtml(staff.email)}" data-staff-email="${escapeHtml(accountIdentifier)}" data-staff-name="${escapeHtml(staff.name || '')}" data-staff-unit="${escapeHtml(staff.unit || '')}" data-staff-registered="${staff.registered ? 'true' : 'false'}">Ubah</button>`
           : '';
-        return `<li class="staff-row"><div class="staff-row-info"><strong>${escapeHtml(staff.name || accountIdentifier)}</strong><small>${escapeHtml(displaySub)}</small><small>${escapeHtml(staff.unit || 'Unit belum ditetapkan')}</small></div><div class="staff-row-actions"><span class="staff-status ${staff.registered ? 'ready' : 'pending'}">${status}</span>${editButton}${removeButton}</div></li>`;
+        return `<li class="staff-row"><div class="staff-row-info"><strong>${escapeHtml(staff.name || accountIdentifier || 'Petugas')}</strong><small>${escapeHtml(staff.email || '')}</small><small>${escapeHtml(staff.unit || 'Unit belum ditetapkan')}</small></div><div class="staff-row-actions"><span class="staff-status ${staff.registered ? 'ready' : 'pending'}">${status}</span>${editButton}${removeButton}</div></li>`;
       })
       .join('');
   } catch (error) {
@@ -2398,7 +2395,6 @@ async function submitStaffEdit(event) {
       body: JSON.stringify({
         originalEmail: $('edit-staff-original-email').value,
         name: $('edit-staff-name').value.trim(),
-        identifier: $('edit-staff-email').value.trim(),
         email: $('edit-staff-email').value.trim(),
         unit: $('edit-staff-unit').value,
         password: $('edit-staff-password').value,
@@ -2445,7 +2441,6 @@ async function submitStaffRegistration(event) {
 
   const payload = {
     name: $('register-name').value.trim(),
-    identifier: $('register-email').value.trim(),
     email: $('register-email').value.trim(),
     unit: $('register-unit').value,
     role: 'petugas',
