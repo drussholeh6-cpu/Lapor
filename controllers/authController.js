@@ -2,7 +2,8 @@ const authService = require('../services/authService');
 
 async function login(req, res) {
   try {
-    const result = await authService.login(req.body?.email, req.body?.password);
+    const identifier = req.body?.identifier || req.body?.email;
+    const result = await authService.login(identifier, req.body?.password);
     res.cookie(result.sessionCookie, result.sessionToken, result.cookieOptions);
     return res.json({ user: result.user });
   } catch (error) {
@@ -23,7 +24,8 @@ async function registerStaff(req, res) {
   try {
     const result = await authService.registerStaffAccount({
       name: req.body?.name,
-      email: req.body?.email,
+      identifier: req.body?.identifier || req.body?.email,
+      email: req.body?.email || req.body?.identifier,
       password: req.body?.password,
       role: req.body?.role || 'petugas',
       unit: req.body?.unit || '',
@@ -39,7 +41,8 @@ async function updateStaff(req, res) {
     const result = await authService.updateStaffAccount({
       originalEmail: req.body?.originalEmail,
       name: req.body?.name,
-      email: req.body?.email,
+      identifier: req.body?.identifier || req.body?.email,
+      email: req.body?.email || req.body?.identifier,
       unit: req.body?.unit,
       password: req.body?.password,
     }, req.user);
@@ -51,7 +54,10 @@ async function updateStaff(req, res) {
 
 async function deleteStaff(req, res) {
   try {
-    const result = await authService.deleteStaffAccount({ email: req.body?.email }, req.user);
+    const result = await authService.deleteStaffAccount({
+      email: req.body?.email || req.body?.identifier,
+      identifier: req.body?.identifier || req.body?.email,
+    }, req.user);
     return res.json({ message: 'Akun petugas berhasil dihapus.', user: result });
   } catch (error) {
     return res.status(error.status || 500).json({ message: error.message, code: error.code });
