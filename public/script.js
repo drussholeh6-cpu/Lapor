@@ -652,8 +652,10 @@ function renderRows() {
   rows.innerHTML = ordered.length
     ? ordered
         .map(
-          (ticket) =>
-            `<tr data-code="${escapeHtml(ticket.code)}" tabindex="0" role="button" aria-label="Lihat riwayat aduan ${escapeHtml(ticket.code)}"><td class="ticket-code-cell"><b>${escapeHtml(ticket.code)}</b></td><td>${escapeHtml(ticket.cat)}</td><td>${escapeHtml(ticket.loc)}</td><td><span class="pill ${statusClass(ticket)}">${escapeHtml(trackingStatus(ticket))}</span></td><td>${elapsedDays(ticket)} hari</td><td class="row-open-cell"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10h10m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="visually-hidden">Lihat detail</span></td></tr>`,
+          (ticket) => {
+            const locText = formatDisplayLocation(ticket.loc);
+            return `<tr data-code="${escapeHtml(ticket.code)}" tabindex="0" role="button" aria-label="Lihat riwayat aduan ${escapeHtml(ticket.code)}"><td class="ticket-code-cell"><b>${escapeHtml(ticket.code)}</b></td><td class="ticket-cat-cell">${escapeHtml(ticket.cat)}</td><td class="ticket-loc-cell" title="${escapeHtml(ticket.loc)}">${escapeHtml(locText)}</td><td class="ticket-status-cell"><span class="pill ${statusClass(ticket)}">${escapeHtml(trackingStatus(ticket))}</span></td><td class="ticket-age-cell">${elapsedDays(ticket)} hari</td><td class="row-open-cell"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10h10m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="visually-hidden">Lihat detail</span></td></tr>`;
+          }
         )
         .join('')
     : '<tr><td colspan="6" class="empty-state">Belum ada aduan yang masuk.</td></tr>';
