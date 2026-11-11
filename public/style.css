@@ -862,7 +862,9 @@ main.shell { padding-block: 24px 48px; }
 .success-msg { color: var(--green-ink) !important; }
 .form-error { color: var(--red); font-weight: 700; }
 
-#result { margin-top: 30px; }
+#result { margin-top: 20px; }
+#result:empty { margin-top: 0; }
+.msg:empty { margin-top: 0; }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Slip / ticket Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .slip {
@@ -1005,7 +1007,7 @@ main.shell { padding-block: 24px 48px; }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Board / map / table Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 #lacak { overflow-x: clip; }
-.board { margin-top: clamp(48px, 7vw, 84px); }
+.board { margin-top: 32px; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
 .stats .stat {
   padding: 14px 16px;
