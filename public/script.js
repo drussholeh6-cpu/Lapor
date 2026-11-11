@@ -983,9 +983,10 @@ function renderTrendChart(cases) {
     .map((ticket) => String(ticket.at || '').slice(0, 10))
     .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
     .sort();
-  const latestDate = dateKeys[dateKeys.length - 1] || new Date().toISOString().slice(0, 10);
+  const todayDate = new Date().toISOString().slice(0, 10);
   const hasCustomRange = Boolean($('report-from')?.value || $('report-to')?.value);
-  let defaultStart = new Date(`${latestDate}T12:00:00Z`);
+  const to = $('report-to')?.value || todayDate;
+  let defaultStart = new Date(`${todayDate}T12:00:00Z`);
   if (grouping === 'day') {
     defaultStart.setUTCDate(defaultStart.getUTCDate() - 29);
   } else if (grouping === 'year') {
@@ -995,8 +996,7 @@ function renderTrendChart(cases) {
     defaultStart.setUTCMonth(defaultStart.getUTCMonth() - 11);
   }
   const defaultFrom = defaultStart.toISOString().slice(0, 10);
-  const from = $('report-from')?.value || (hasCustomRange ? dateKeys[0] || latestDate : defaultFrom);
-  const to = $('report-to')?.value || latestDate;
+  const from = $('report-from')?.value || (hasCustomRange ? dateKeys[0] || todayDate : defaultFrom);
   const start = new Date(`${from}T12:00:00Z`);
   const end = new Date(`${to}T12:00:00Z`);
   const title = $('trend-title');
