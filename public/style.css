@@ -263,6 +263,7 @@ main.shell { padding-block: 24px 48px; }
   height: 100%;
   object-fit: cover;
   display: block;
+  image-rendering: -webkit-optimize-contrast;
 }
 .brand:hover .brand-mark { transform: scale(1.05); }
 .brand-mark.large {
@@ -1288,7 +1289,7 @@ textarea { min-height: 130px; resize: vertical; line-height: 1.6; }
 .login-brand::after { display: none; }
 .login-brand > * { position: relative; z-index: 1; }
 .login-brand-top { display: flex; align-items: center; gap: 14px; margin-bottom: 32px; }
-.login-brand .brand-mark { background: #2563eb; color: #ffffff; }
+.login-brand .brand-mark { background: #ffffff; border: 1px solid rgba(255, 255, 255, 0.25); }
 .login-brand .label-chip { background: #1e293b; color: #bfdbfe; border: 1px solid #475569; }
 .login-brand h1 { max-width: 11em; font-size: clamp(34px, 4.4vw, 56px); font-weight: 800; letter-spacing: -0.05em; }
 .login-brand h1 em { color: #bfdbfe; }
