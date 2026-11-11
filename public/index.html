@@ -138,7 +138,7 @@
         <div class="public-stat-layout">
           <article class="public-stat-panel public-stat-panel-wide">
             <header class="public-stat-panel-head">
-              <div><p class="eyebrow muted"><i></i> Volume laporan</p><h3>Tren aduan per bulan</h3></div>
+              <div><p class="eyebrow muted"><i></i> Volume laporan</p><h3>Tren aduan</h3></div>
               <span class="stats-period">12 bulan terakhir</span>
             </header>
             <div id="stats-monthly-chart" class="public-trend-chart" role="img" aria-label="Grafik tren jumlah aduan per bulan"></div>
@@ -460,6 +460,13 @@
           <div class="report-filters">
             <label for="report-from">Dari tanggal<input id="report-from" type="date"></label>
             <label for="report-to">Sampai tanggal<input id="report-to" type="date"></label>
+            <label for="report-grouping">Tampilkan per
+              <select id="report-grouping">
+                <option value="day">Tanggal</option>
+                <option value="month" selected>Bulan</option>
+                <option value="year">Tahun</option>
+              </select>
+            </label>
           </div>
           <div class="report-grid">
             <section class="report-chart" aria-labelledby="trend-title">
@@ -557,9 +564,10 @@
                 <label for="s-note" id="s-note-label">Catatan tindak lanjut</label>
                 <textarea id="s-note" maxlength="2000" placeholder="Jelaskan tindakan atau keputusan tindak lanjut."></textarea>
               </div>
-              <div class="field full" id="s-rejection-field" hidden>
+              <div class="field full rejection-field" id="s-rejection-field" hidden aria-live="polite">
                 <label for="s-rejection-reason">Alasan penolakan <span class="required-mark">wajib</span></label>
                 <textarea id="s-rejection-reason" maxlength="2000" placeholder="Jelaskan alasan aduan ditolak agar dapat diketahui warga."></textarea>
+                <p class="hint">Alasan ini akan disampaikan kepada warga pada halaman pelacakan.</p>
               </div>
               <div class="field full" id="s-visibility-field">
                 <label for="s-visibility">Visibilitas catatan</label>
@@ -567,16 +575,19 @@
                   <option value="public">Dapat dilihat warga</option>
                   <option value="internal">Internal petugas</option>
                 </select>
-                <p class="hint" id="s-visibility-hint">Status selalu terlihat warga. Catatan internal hanya tampil di ruang petugas. Permintaan informasi selalu ditampilkan ke warga.</p>
+                <p class="hint" id="s-visibility-hint">Status selalu terlihat warga. Catatan internal hanya tampil di ruang petugas.</p>
               </div>
               <div class="field full">
                 <label for="staff-evidence">Bukti penanganan <span class="optional">(opsional, maks. 10 MB sebelum dikompres)</span></label>
                 <input id="staff-evidence" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif">
+                <div id="staff-evidence-preview" class="evidence-preview" hidden>
+                  <img id="staff-evidence-preview-image" alt="Pratinjau bukti penanganan yang akan diunggah">
+                  <p id="staff-evidence-preview-status" class="hint" role="status"></p>
+                </div>
                 <p class="hint">Foto mengikuti visibilitas catatan. Bukti internal hanya terlihat petugas; bukti publik dapat dilihat warga saat melacak.</p>
               </div>
               <div class="full staff-actions">
                 <button class="btn btn-dark" name="operation" value="update" type="submit" id="staff-submit">Simpan pembaruan</button>
-                <button class="btn btn-ghost" name="operation" value="request-info" type="submit">Minta informasi warga</button>
                 <button class="btn btn-danger" id="delete-ticket" type="button">Hapus aduan</button>
                 <p class="msg success-msg" id="smsg" role="status"></p>
               </div>

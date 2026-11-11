@@ -14,6 +14,8 @@ let addressLookupTimer;
 let addressLookupSequence = 0;
 let complaintEvidenceSelection = null;
 let complaintEvidencePreviewSequence = 0;
+let staffEvidenceSelection = null;
+let staffEvidencePreviewSequence = 0;
 
 const CATS = [
   'Jalan rusak',
@@ -748,12 +750,6 @@ function slip(ticket) {
       ? `Melewati target ${sla} hari.`
       : `Target ${sla} hari; ${dueLabel(ticket)}.`;
 
-  const waiting = ticket.waitingForInfo
-    ? `<section class="info-request"><b>Petugas meminta informasi tambahan</b><p>${escapeHtml(ticket.infoPrompt || 'Mohon lengkapi informasi aduan ini.')}</p><small>${formatDate(ticket.infoRequestedAt || nowIso())}</small><form class="info-response-form" data-code="${escapeHtml(ticket.code)}"><label for="response-${escapeHtml(ticket.code)}">Balasan Anda</label><textarea id="response-${escapeHtml(ticket.code)}" name="response" required minlength="5" maxlength="2000" placeholder="Tulis informasi tambahan untuk petugas."></textarea><button class="btn btn-dark" type="submit">Kirim balasan</button></form></section>`
-    : ticket.infoResponse
-      ? `<p class="response-received"><b>Balasan informasi diterima</b><br>${escapeHtml(ticket.infoResponse.note)}<small>${formatDate(ticket.infoResponse.at)}</small></p>`
-      : '';
-
   const rejection =
     state === -1
       ? `<li class="no"><span class="dot"></span><h3>Ditolak</h3><div class="when">${formatDate(currentEntry(ticket).at)}, oleh ${escapeHtml(currentEntry(ticket).by)}</div>${currentEntry(ticket).visibility === 'internal' ? '' : `<p class="note">${escapeHtml(currentEntry(ticket).note)}</p>`}</li>`
@@ -765,7 +761,7 @@ function slip(ticket) {
 
   const evidence = evidenceMarkup(ticket.attachments);
 
-  return `<article class="slip"><div class="slip-h"><div><div class="code">${escapeHtml(ticket.code)}</div><p class="meta">${escapeHtml(ticket.cat)}, ${escapeHtml(ticket.loc)}<br>Masuk ${formatDate(ticket.at)}<br>${location}</p></div><div class="stamp ${statusClass(ticket)}">${escapeHtml(statusLabel(ticket))}</div></div><div class="slip-b"><p class="issue">“${escapeHtml(ticket.text)}”</p><div class="case-tags"><span class="priority-tag ${priorityClass(ticket.priority)}">Prioritas ${priorityLabel(ticket.priority)}</span><span class="unit-tag">${escapeHtml(ticket.unit)}</span></div>${evidence ? `<div class="evidence-box">${evidence}</div>` : ''}<div class="age"><div class="${late ? 'late-text' : ''}">${ageText}</div><div class="bar ${late ? 'over' : ''}" role="img" aria-label="${progress} persen dari target waktu"><i style="width:${progress}%"></i></div></div>${waiting}<ol class="tl">${timeline(ticket)}${rejection}</ol>${isClosed(ticket) ? ratingMarkup(ticket) : ''}</div></article>`;
+  return `<article class="slip"><div class="slip-h"><div><div class="code">${escapeHtml(ticket.code)}</div><p class="meta">${escapeHtml(ticket.cat)}, ${escapeHtml(ticket.loc)}<br>Masuk ${formatDate(ticket.at)}<br>${location}</p></div><div class="stamp ${statusClass(ticket)}">${escapeHtml(statusLabel(ticket))}</div></div><div class="slip-b"><p class="issue">“${escapeHtml(ticket.text)}”</p><div class="case-tags"><span class="priority-tag ${priorityClass(ticket.priority)}">Prioritas ${priorityLabel(ticket.priority)}</span><span class="unit-tag">${escapeHtml(ticket.unit)}</span></div>${evidence ? `<div class="evidence-box">${evidence}</div>` : ''}<div class="age"><div class="${late ? 'late-text' : ''}">${ageText}</div><div class="bar ${late ? 'over' : ''}" role="img" aria-label="${progress} persen dari target waktu"><i style="width:${progress}%"></i></div></div><ol class="tl">${timeline(ticket)}${rejection}</ol>${isClosed(ticket) ? ratingMarkup(ticket) : ''}</div></article>`;
 }
 
 async function showTicket(code) {
@@ -973,42 +969,64 @@ function renderTrendChart(cases) {
   const chart = $('complaint-trend');
   if (!chart) return;
 
-  const end = $('report-to')?.value
-    ? new Date(`${$('report-to').value}T12:00:00`)
-    : new Date();
-  const start = $('report-from')?.value
-    ? new Date(`${$('report-from').value}T12:00:00`)
-    : new Date(end.getFullYear(), end.getMonth() - 11, 1);
-  const rangeDays = Math.max(1, Math.ceil((end - start) / DAY) + 1);
-  const daily = rangeDays <= 31;
-  const plotStart = daily ? start : rangeDays > 366 ? new Date(end.getFullYear(), end.getMonth() - 11, 1) : start;
-  const periods = [];
+  const grouping = $('report-grouping')?.value || 'month';
+  const dateKeys = cases
+    .map((ticket) => String(ticket.at || '').slice(0, 10))
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+    .sort();
+  const from = $('report-from')?.value || dateKeys[0] || new Date().toISOString().slice(0, 10);
+  const to = $('report-to')?.value || dateKeys[dateKeys.length - 1] || from;
+  const start = new Date(`${from}T12:00:00Z`);
+  const end = new Date(`${to}T12:00:00Z`);
+  const title = $('trend-title');
+  if (title) {
+    title.textContent = `Tren pengaduan per ${grouping === 'day' ? 'tanggal' : grouping === 'year' ? 'tahun' : 'bulan'}`;
+  }
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start > end) {
+    chart.innerHTML = '<p class="empty-row">Rentang tanggal tidak valid. Periksa kembali tanggal awal dan akhir.</p>';
+    const summary = $('trend-summary');
+    if (summary) summary.textContent = '0 aduan pada filter';
+    return;
+  }
 
-  if (daily) {
-    for (let cursor = new Date(plotStart); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+  const periods = [];
+  const cursor = new Date(start);
+  if (grouping === 'day') {
+    while (cursor <= end) {
       periods.push({
         key: cursor.toISOString().slice(0, 10),
-        label: cursor.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+        label: cursor.toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          ...(start.getUTCFullYear() !== end.getUTCFullYear() ? { year: '2-digit' } : {}),
+          timeZone: 'UTC',
+        }),
       });
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+  } else if (grouping === 'year') {
+    cursor.setUTCDate(1);
+    cursor.setUTCMonth(0);
+    while (cursor <= end) {
+      periods.push({ key: String(cursor.getUTCFullYear()), label: String(cursor.getUTCFullYear()) });
+      cursor.setUTCFullYear(cursor.getUTCFullYear() + 1);
     }
   } else {
-    const cursor = new Date(plotStart.getFullYear(), plotStart.getMonth(), 1);
-    while (cursor <= end && periods.length < 12) {
+    cursor.setUTCDate(1);
+    while (cursor <= end) {
       periods.push({
-        key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
-        label: cursor.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' }),
+        key: cursor.toISOString().slice(0, 7),
+        label: cursor.toLocaleDateString('id-ID', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
       });
-      cursor.setMonth(cursor.getMonth() + 1);
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
     }
   }
 
   const counts = new Map(periods.map((period) => [period.key, 0]));
   cases.forEach((ticket) => {
-    const date = new Date(ticket.at);
-    if (!Number.isFinite(date.getTime()) || date < plotStart || date > end) return;
-    const key = daily
-      ? date.toISOString().slice(0, 10)
-      : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const date = String(ticket.at || '').slice(0, 10);
+    if (date < from || date > to) return;
+    const key = grouping === 'day' ? date : grouping === 'year' ? date.slice(0, 4) : date.slice(0, 7);
     if (counts.has(key)) counts.set(key, counts.get(key) + 1);
   });
 
@@ -1022,7 +1040,10 @@ function renderTrendChart(cases) {
     : '<p class="empty-row">Belum ada data pada periode ini.</p>';
 
   const summary = $('trend-summary');
-  if (summary) summary.textContent = `${cases.length} aduan pada filter`;
+  if (summary) summary.textContent = `${cases.filter((ticket) => {
+    const date = String(ticket.at || '').slice(0, 10);
+    return date >= from && date <= to;
+  }).length} aduan pada filter`;
 }
 
 function renderDashboardHistory(cases) {
@@ -1043,7 +1064,7 @@ function renderDashboardHistory(cases) {
 
 function renderDashboardReport(cases) {
   const filtered = filteredDashboardCases(cases);
-  renderTrendChart(filtered);
+  renderTrendChart(cases);
   renderDashboardHistory(filtered);
 }
 
@@ -1281,7 +1302,7 @@ async function renderCaseEditor() {
     : '';
 
   detail.hidden = false;
-  detail.innerHTML = `<p>${escapeHtml(ticket.text)}</p><p class="reporter-private"><b>Pelapor:</b> ${escapeHtml(ticket.name || 'Tidak mencantumkan nama')}${emailLine}</p><div class="case-tags"><span class="priority-tag ${priorityClass(ticket.priority)}">${priorityLabel(ticket.priority)}</span><span class="unit-tag">${escapeHtml(ticket.unit)}</span></div>${photoText}${ticket.waitingForInfo ? `<p class="info-request"><b>Menunggu jawaban warga</b><br>${escapeHtml(ticket.infoPrompt)}</p>` : ''}${ticket.infoResponse ? `<p class="response-received"><b>Jawaban warga</b><br>${escapeHtml(ticket.infoResponse.note)}</p>` : ''}${internalNotes ? `<details class="internal-history"><summary>Catatan internal petugas</summary><ol>${internalNotes}</ol></details>` : ''}`;
+  detail.innerHTML = `<p>${escapeHtml(ticket.text)}</p><p class="reporter-private"><b>Pelapor:</b> ${escapeHtml(ticket.name || 'Tidak mencantumkan nama')}${emailLine}</p><div class="case-tags"><span class="priority-tag ${priorityClass(ticket.priority)}">${priorityLabel(ticket.priority)}</span><span class="unit-tag">${escapeHtml(ticket.unit)}</span></div>${photoText}${internalNotes ? `<details class="internal-history"><summary>Catatan internal petugas</summary><ol>${internalNotes}</ol></details>` : ''}`;
 }
 
 function renderActivity(cases) {
@@ -1952,36 +1973,7 @@ async function submitNewTicket(event) {
   toast('Aduan terkirim dan nomor aduan telah dikirim ke email Anda.', 'success', 6000);
 }
 
-/* ─── Resident reply & rating ─── */
-async function submitResidentReply(event) {
-  const form = event.target.closest('.info-response-form');
-  if (!form) return;
-  event.preventDefault();
-
-  const ticket = tickets.find((item) => item.code === form.dataset.code);
-  const note = new FormData(form).get('response')?.trim() || '';
-  if (!ticket || note.length < 5) return;
-
-  const button = form.querySelector('button[type="submit"]');
-  setLoading(button, true, 'Mengirim…');
-
-  try {
-    const updated = await apiRequest(`/complaints/${ticket.code}/replies`, {
-      method: 'POST',
-      body: JSON.stringify({ note }),
-    });
-    const normalized = normalizeTicket(updated);
-    const index = tickets.findIndex((item) => item.code === normalized.code);
-    if (index >= 0) tickets[index] = normalized;
-    toast('Balasan terkirim. Terima kasih.', 'success');
-    await showTicket(ticket.code);
-  } catch (error) {
-    toast(error.message, 'error');
-  } finally {
-    setLoading(button, false);
-  }
-}
-
+/* ─── Resident ratings ─── */
 async function submitRating(event) {
   const form = event.target.closest('.rating-form');
   if (!form) return;
@@ -2104,10 +2096,6 @@ function mergePublicTicket(updated) {
     priority: updated.priority,
     unit: updated.unit,
     coordinates: updated.coordinates,
-    waitingForInfo: updated.waitingForInfo,
-    infoPrompt: updated.infoPrompt,
-    infoRequestedAt: updated.infoRequestedAt,
-    infoResponse: updated.infoResponse,
     rating: updated.rating,
     log: publicLog,
     attachments,
@@ -2141,11 +2129,6 @@ async function submitStaffAction(event) {
     message.textContent = 'Pilih visibilitas catatan.';
     return;
   }
-  if (operation === 'request-info' && visibility !== 'public') {
-    message.textContent = 'Permintaan informasi selalu terlihat warga; pilih visibilitas publik.';
-    return;
-  }
-
   if (operation === 'update' && !Number.isInteger(statusValue)) {
     message.textContent = 'Pilih status tindak lanjut.';
     return;
@@ -2155,18 +2138,19 @@ async function submitStaffAction(event) {
     return;
   }
   if (!note) {
-    message.textContent = operation === 'request-info'
-      ? 'Tuliskan informasi yang perlu disampaikan kepada warga.'
-      : statusValue === -1
-        ? 'Alasan penolakan wajib diisi.'
-        : 'Catatan tindak lanjut wajib diisi.';
+    message.textContent = statusValue === -1
+      ? 'Alasan penolakan wajib diisi.'
+      : 'Catatan tindak lanjut wajib diisi.';
     (rejecting ? $('s-rejection-reason') : $('s-note')).focus();
     return;
   }
 
   let evidence = null;
   try {
-    evidence = await compressImage($('staff-evidence').files[0]);
+    const file = $('staff-evidence').files[0];
+    evidence = file
+      ? await (staffEvidenceSelection?.file === file ? staffEvidenceSelection.promise : compressImage(file))
+      : null;
   } catch (reason) {
     message.textContent = reason.message;
     return;
@@ -2200,17 +2184,19 @@ async function submitStaffAction(event) {
     $('s-rejection-reason').value = '';
     $('s-visibility').value = 'public';
     $('staff-evidence').value = '';
-    const updateMessage =
-      operation === 'request-info'
-        ? 'Permintaan informasi tersimpan dan tampil saat warga melacak aduan.'
-        : 'Pembaruan tersimpan dan dapat dilihat warga melalui nomor aduan.';
+    staffEvidenceSelection = null;
+    staffEvidencePreviewSequence += 1;
+    $('staff-evidence-preview').hidden = true;
+    $('staff-evidence-preview-image').removeAttribute('src');
+    $('staff-evidence-preview-status').textContent = '';
+    const updateMessage = 'Pembaruan tersimpan dan dapat dilihat warga melalui nomor aduan.';
     const emailSent = updated.emailNotification?.sent === true;
     $('smsg').textContent = emailSent
       ? `${updateMessage} Email pemberitahuan juga terkirim kepada pengadu.`
       : `${updateMessage} Namun, email pemberitahuan gagal dikirim. Periksa konfigurasi email.`;
     toast(
       emailSent
-        ? operation === 'request-info' ? 'Permintaan informasi dan email pemberitahuan terkirim.' : 'Pembaruan dan email pemberitahuan terkirim.'
+        ? 'Pembaruan dan email pemberitahuan terkirim.'
         : 'Pembaruan tersimpan, tetapi email pemberitahuan gagal dikirim.',
       emailSent ? 'success' : 'error',
     );
@@ -2226,9 +2212,8 @@ async function submitStaffAction(event) {
   }
 }
 
-function updateStaffNoteField(operation = 'update') {
-  const rejected = operation === 'update' && $('s-st')?.value === '-1';
-  const requestingInfo = operation === 'request-info';
+function updateStaffNoteField() {
+  const rejected = $('s-st')?.value === '-1';
   const label = $('s-note-label');
   const note = $('s-note');
   const noteField = $('s-note-field');
@@ -2238,19 +2223,16 @@ function updateStaffNoteField(operation = 'update') {
   const visibility = $('s-visibility');
   if (!label || !note || !noteField || !reasonField || !reason || !visibilityField || !visibility) return;
 
-  label.textContent = rejected
-    ? 'Catatan tindak lanjut'
-    : requestingInfo ? 'Informasi yang diminta' : 'Catatan tindak lanjut';
+  label.textContent = 'Catatan tindak lanjut';
   noteField.hidden = rejected;
   reasonField.hidden = !rejected;
   note.required = !rejected;
   reason.required = rejected;
+  reason.setAttribute('aria-required', String(rejected));
   visibilityField.hidden = rejected;
   visibility.disabled = rejected;
   if (rejected) visibility.value = 'public';
-  note.placeholder = requestingInfo
-    ? 'Tuliskan informasi yang perlu disampaikan kepada warga.'
-    : 'Jelaskan tindakan atau keputusan tindak lanjut.';
+  note.placeholder = 'Jelaskan tindakan atau keputusan tindak lanjut.';
 }
 
 function openDeleteModal() {
@@ -2679,12 +2661,44 @@ function bindEvents() {
     });
   });
 
+  $('staff-evidence')?.addEventListener('change', (event) => {
+    const file = event.target.files?.[0];
+    const preview = $('staff-evidence-preview');
+    const image = $('staff-evidence-preview-image');
+    const status = $('staff-evidence-preview-status');
+    const sequence = ++staffEvidencePreviewSequence;
+    staffEvidenceSelection = null;
+    if (!file) {
+      if (preview) preview.hidden = true;
+      if (image) image.removeAttribute('src');
+      if (status) status.textContent = '';
+      return;
+    }
+
+    if (preview) preview.hidden = false;
+    if (image) image.removeAttribute('src');
+    if (status) {
+      status.classList.remove('form-error');
+      status.textContent = 'Menyiapkan pratinjau foto…';
+    }
+    const promise = compressImage(file);
+    staffEvidenceSelection = { file, promise };
+    promise.then((evidence) => {
+      if (sequence !== staffEvidencePreviewSequence) return;
+      if (image) image.src = evidence;
+      if (status) status.textContent = 'Pratinjau bukti penanganan yang akan diunggah.';
+    }).catch((error) => {
+      if (sequence !== staffEvidencePreviewSequence) return;
+      if (status) {
+        status.classList.add('form-error');
+        status.textContent = error.message;
+      }
+    });
+  });
+
   $('f-staff')?.addEventListener('submit', submitStaffAction);
   $('s-t')?.addEventListener('change', renderCaseEditor);
   $('s-st')?.addEventListener('change', updateStaffNoteField);
-  $$('button[name="operation"][value="request-info"]').forEach((button) => {
-    button.addEventListener('click', () => updateStaffNoteField('request-info'));
-  });
   $('delete-ticket')?.addEventListener('click', openDeleteModal);
   $('delete-selected')?.addEventListener('click', () => {
     const codes = [...selectedBulkTicketCodes];
@@ -2716,7 +2730,7 @@ function bindEvents() {
     });
   });
 
-  ['report-from', 'report-to'].forEach((id) => {
+  ['report-from', 'report-to', 'report-grouping'].forEach((id) => {
     $(id)?.addEventListener('change', renderDashboard);
   });
   $('export-excel')?.addEventListener('click', exportDashboardReport);
@@ -2776,7 +2790,6 @@ function bindEvents() {
 
   $('result')?.addEventListener('submit', (event) => {
     if (event.target.matches('.rating-form')) submitRating(event);
-    else submitResidentReply(event);
   });
 
   $('locate-me')?.addEventListener('click', locateUser);
