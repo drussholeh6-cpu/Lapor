@@ -280,6 +280,19 @@ function formatDate(value) {
   return `${getPart('day')} ${getPart('month')} ${getPart('year')}, ${getPart('hour')}.${getPart('minute')}`;
 }
 
+function formatDisplayLocation(loc) {
+  if (typeof loc !== 'string' || !loc.trim()) return '-';
+  const parts = loc.split(',').map((part) => part.trim()).filter(Boolean);
+  if (!parts.length) return '-';
+
+  const cityIndex = parts.findIndex((part) => /^(kota|kabupaten)\b/i.test(part) || /\b(kota|kabupaten)\b/i.test(part));
+  if (cityIndex !== -1) {
+    return parts.slice(0, cityIndex + 1).join(', ');
+  }
+
+  return parts.slice(0, Math.min(4, parts.length)).join(', ');
+}
+
 /* ─── API ─── */
 async function apiRequest(path, options = {}) {
   const headers = { Accept: 'application/json', ...(options.headers || {}) };
@@ -2843,12 +2856,14 @@ async function initialize() {
   bindEvents();
   setupReveal();
 
-  tickets = await loadPublicTickets();
   renderBoard();
-
-  // Muat statistik publik lalu inisialisasi peta setelah data tersedia
-  await loadPublicStatistics();
   ensureStatisticsMap();
+
+  void loadPublicTickets().then((loadedTickets) => {
+    tickets = loadedTickets;
+    renderBoard();
+  });
+  void loadPublicStatistics();
 
   window.setInterval(() => {
     if (!document.hidden) loadPublicStatistics();

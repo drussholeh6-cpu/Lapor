@@ -3,7 +3,7 @@
    Offline caching, fast loading & background sync resilience
    ══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pantaukota-v2';
+const CACHE_NAME = 'pantaukota-v4';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
