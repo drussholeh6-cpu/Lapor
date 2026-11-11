@@ -1409,10 +1409,16 @@ textarea { min-height: 130px; resize: vertical; line-height: 1.6; }
   border-radius: var(--radius-sm);
   background: var(--brand);
   color: #ffffff;
-  font: 800 10px/1.2 var(--font-body);
+  font: 800 10px/1 var(--font-body);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
+  box-sizing: border-box;
+}
+.report-actions .notification-count {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 11px;
 }
 .text-button { border: 0; padding: 2px; background: transparent; color: var(--green-ink); font: 600 11px/1 var(--font-body); cursor: pointer; }
 .text-button:hover { text-decoration: underline; }
