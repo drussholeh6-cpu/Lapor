@@ -34,7 +34,7 @@ async function createComplaintWorkbook(complaints, filters = {}) {
   worksheet.mergeCells('A2:I2');
   const subtitle = worksheet.getCell('A2');
   const dateRange = [filters.from || 'Semua tanggal', filters.to || 'Sekarang'].join(' s.d. ');
-  subtitle.value = `Periode: ${dateRange}  |  Wilayah: ${filters.region && filters.region !== 'all' ? filters.region : 'Semua wilayah'}  |  Dibuat: ${new Date().toLocaleString('id-ID')}`;
+  subtitle.value = `Periode: ${dateRange}  |  Dibuat: ${new Date().toLocaleString('id-ID')}`;
   subtitle.font = { name: 'Aptos', size: 10, italic: true, color: { argb: 'FF53665B' } };
   subtitle.alignment = { vertical: 'middle', wrapText: true };
   worksheet.getRow(2).height = 26;

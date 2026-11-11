@@ -89,7 +89,6 @@ async function exportStaffComplaintReport(req, res) {
   const filters = {
     from: req.query.from || '',
     to: req.query.to || '',
-    region: req.query.region || 'all',
   };
   const complaints = await complaintService.listStaffReportComplaints(req.user, filters);
   const workbook = await complaintReportService.createComplaintWorkbook(complaints, filters);

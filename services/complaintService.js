@@ -124,11 +124,6 @@ async function listStaffComplaints(user) {
   return accessible.map(staffComplaintSummary);
 }
 
-function reportRegion(complaint) {
-  const parts = String(complaint.loc || '').split(',').map((part) => part.trim()).filter(Boolean);
-  return parts.length > 1 ? parts[1] : parts[0] || 'Wilayah tidak disebutkan';
-}
-
 function validateReportDate(value, label) {
   if (!value) return '';
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -144,13 +139,6 @@ function validateReportDate(value, label) {
 async function listStaffReportComplaints(user, filters = {}) {
   const from = validateReportDate(filters.from, 'awal');
   const to = validateReportDate(filters.to, 'akhir');
-  if (filters.region !== undefined && typeof filters.region !== 'string') {
-    throw new AppError('Nama wilayah tidak valid.', { status: 400, code: 'VALIDATION_ERROR' });
-  }
-  const region = String(filters.region || '').trim();
-  if (region.length > 200) {
-    throw new AppError('Nama wilayah terlalu panjang.', { status: 400, code: 'VALIDATION_ERROR' });
-  }
   if (from && to && from > to) {
     throw new AppError('Tanggal awal tidak boleh melewati tanggal akhir.', { status: 400, code: 'VALIDATION_ERROR' });
   }
@@ -159,8 +147,7 @@ async function listStaffReportComplaints(user, filters = {}) {
   return complaints.filter((complaint) => {
     const date = String(complaint.at || '').slice(0, 10);
     return (!from || date >= from)
-      && (!to || date <= to)
-      && (!region || region === 'all' || reportRegion(complaint) === region);
+      && (!to || date <= to);
   });
 }
 
