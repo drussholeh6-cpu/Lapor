@@ -1399,7 +1399,21 @@ textarea { min-height: 130px; resize: vertical; line-height: 1.6; }
 .panel-head p { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 
 .notification-tools { display: grid; justify-items: end; gap: 5px; flex: none; }
-.notification-count { padding: 5px 10px; border-radius: var(--radius-sm); background: var(--brand); color: #ffffff; font: 800 9.5px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; }
+.notification-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: #ffffff;
+  font: 800 10px/1.2 var(--font-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 .text-button { border: 0; padding: 2px; background: transparent; color: var(--green-ink); font: 600 11px/1 var(--font-body); cursor: pointer; }
 .text-button:hover { text-decoration: underline; }
 
@@ -1483,7 +1497,7 @@ body:not(.is-admin) .row-unit { display: none; }
 .activity-list small { color: var(--muted); font-size: 10.5px; }
 
 .dashboard-report { margin-bottom: 14px; }
-.report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.report-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .report-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
 .report-filters label { margin: 0; font-size: 11px; }
 .report-filters input, .report-filters select { margin-top: 5px; min-height: 40px; padding: 9px 11px; font-size: 12.5px; }
