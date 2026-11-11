@@ -458,11 +458,6 @@ function averageFinish(cases) {
   return Math.round(finished.reduce((total, ticket) => total + elapsedDays(ticket), 0) / finished.length);
 }
 
-function ticketRegion(ticket) {
-  const parts = String(ticket.loc || '').split(',').map((part) => part.trim()).filter(Boolean);
-  return parts.length > 1 ? parts[1] : parts[0] || 'Wilayah tidak disebutkan';
-}
-
 /* ─── Count-up metric ─── */
 function setMetric(id, value, suffix = '') {
   const element = $(id);
@@ -946,13 +941,11 @@ function renderDashboard() {
 function filteredDashboardCases(cases) {
   const from = $('report-from')?.value || '';
   const to = $('report-to')?.value || '';
-  const region = $('report-region')?.value || 'all';
 
   return cases.filter((ticket) => {
     const date = String(ticket.at || '').slice(0, 10);
     return (!from || date >= from)
-      && (!to || date <= to)
-      && (region === 'all' || ticketRegion(ticket) === region);
+      && (!to || date <= to);
   });
 }
 
@@ -1029,16 +1022,6 @@ function renderDashboardHistory(cases) {
 }
 
 function renderDashboardReport(cases) {
-  const regionSelect = $('report-region');
-  if (!regionSelect) return;
-
-  const selectedRegion = regionSelect.value || 'all';
-  const regions = [...new Set(cases.map(ticketRegion))].sort((a, b) => a.localeCompare(b, 'id'));
-  regionSelect.innerHTML = `<option value="all">Semua wilayah</option>${regions
-    .map((region) => `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`)
-    .join('')}`;
-  regionSelect.value = regions.includes(selectedRegion) ? selectedRegion : 'all';
-
   const filtered = filteredDashboardCases(cases);
   renderTrendChart(filtered);
   renderDashboardHistory(filtered);
@@ -1047,8 +1030,8 @@ function renderDashboardReport(cases) {
 async function exportDashboardReport(event) {
   const button = event.currentTarget;
   const params = new URLSearchParams();
-  ['from', 'to', 'region'].forEach((key) => {
-    const value = $(`report-${key}`)?.value || (key === 'region' ? 'all' : '');
+  ['from', 'to'].forEach((key) => {
+    const value = $(`report-${key}`)?.value || '';
     if (value) params.set(key, value);
   });
 
@@ -2704,7 +2687,7 @@ function bindEvents() {
     });
   });
 
-  ['report-from', 'report-to', 'report-region'].forEach((id) => {
+  ['report-from', 'report-to'].forEach((id) => {
     $(id)?.addEventListener('change', renderDashboard);
   });
   $('export-excel')?.addEventListener('click', exportDashboardReport);
@@ -2883,3 +2866,22 @@ async function initialize() {
 }
 
 initialize();
+
+/* ——— Password show/hide toggle ——— */
+document.querySelectorAll('.pass-toggle').forEach((btn) => {
+  const inputId = btn.getAttribute('aria-controls');
+  const input = document.getElementById(inputId);
+  const eyeOpen = btn.querySelector('.eye-open');
+  const eyeClosed = btn.querySelector('.eye-closed');
+  if (!input) return;
+
+  btn.addEventListener('click', () => {
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    eyeOpen.hidden = isHidden;
+    eyeClosed.hidden = !isHidden;
+    btn.setAttribute('aria-label', isHidden ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
+    // Fokus tetap di input agar tidak terganggu
+    input.focus();
+  });
+});

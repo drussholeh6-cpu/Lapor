@@ -409,7 +409,13 @@
             <label for="login-user">Email</label>
             <input id="login-user" type="email" required autocomplete="username" placeholder="nama@instansi.go.id">
             <label for="login-pass">Kata sandi</label>
-            <input id="login-pass" type="password" required autocomplete="current-password" placeholder="Masukkan kata sandi">
+            <div class="pass-wrap">
+              <input id="login-pass" type="password" required autocomplete="current-password" placeholder="Masukkan kata sandi">
+              <button type="button" class="pass-toggle" aria-label="Tampilkan kata sandi" aria-controls="login-pass" tabindex="-1">
+                <svg class="eye-icon eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-icon eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
             <p class="msg" id="login-error" role="alert"></p>
             <button class="btn btn-dark btn-wide" type="submit" id="login-submit">Masuk ke ruang kerja <span class="btn-arrow" aria-hidden="true">↗</span></button>
           </form>
@@ -445,7 +451,7 @@
 
         <section class="panel dashboard-report" data-admin-section="overview">
           <div class="panel-head">
-            <div><h2>Laporan pengaduan</h2><p>Filter dan pantau tren pengaduan berdasarkan tanggal serta wilayah.</p></div>
+            <div><h2>Laporan pengaduan</h2><p>Filter dan pantau tren pengaduan berdasarkan tanggal.</p></div>
             <div class="report-actions">
               <span class="notification-count" id="dashboard-notification-count">0 aduan baru</span>
               <button class="btn btn-dark btn-small" id="export-excel" type="button">Unduh Excel (.xlsx)</button>
@@ -454,7 +460,6 @@
           <div class="report-filters">
             <label for="report-from">Dari tanggal<input id="report-from" type="date"></label>
             <label for="report-to">Sampai tanggal<input id="report-to" type="date"></label>
-            <label for="report-region">Wilayah<select id="report-region"><option value="all">Semua wilayah</option></select></label>
           </div>
           <div class="report-grid">
             <section class="report-chart" aria-labelledby="trend-title">
@@ -605,7 +610,13 @@
                 <option value="Koordinasi Lintas Instansi">Koordinasi Lintas Instansi</option>
               </select>
               <label for="register-pass">Kata sandi</label>
-              <input id="register-pass" type="password" required minlength="6" maxlength="128" placeholder="Minimal 6 karakter">
+              <div class="pass-wrap">
+                <input id="register-pass" type="password" required minlength="6" maxlength="128" placeholder="Minimal 6 karakter">
+                <button type="button" class="pass-toggle" aria-label="Tampilkan kata sandi" aria-controls="register-pass" tabindex="-1">
+                  <svg class="eye-icon eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg class="eye-icon eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
               <p class="msg" id="register-error" role="alert"></p>
               <button class="btn btn-dark btn-wide" type="submit">Buat akun petugas</button>
             </form>
@@ -676,7 +687,13 @@
       </select>
       <div id="edit-staff-password-field">
         <label for="edit-staff-password">Kata sandi baru <span class="optional">(kosongkan jika tidak diubah)</span></label>
-        <input id="edit-staff-password" type="password" minlength="6" maxlength="128" autocomplete="new-password" placeholder="Minimal 6 karakter">
+        <div class="pass-wrap">
+          <input id="edit-staff-password" type="password" minlength="6" maxlength="128" autocomplete="new-password" placeholder="Minimal 6 karakter">
+          <button type="button" class="pass-toggle" aria-label="Tampilkan kata sandi" aria-controls="edit-staff-password" tabindex="-1">
+            <svg class="eye-icon eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-icon eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
         <p class="hint">Perubahan kata sandi berlaku segera. Sampaikan kata sandi baru kepada petugas dengan aman.</p>
       </div>
       <p class="hint" id="edit-staff-pending" hidden>Akun ini belum dibuat. Perbarui data dasar di sini, lalu buat akun login melalui formulir tambah petugas.</p>
