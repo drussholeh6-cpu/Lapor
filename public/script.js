@@ -571,6 +571,31 @@ function animatePublicStat(element, value, suffix = '') {
   window.requestAnimationFrame(frame);
 }
 
+/* Grafik garis area (SVG) untuk tren aduan. Menggantikan grafik batang. */
+function lineChartSvg(points, unit = 'aduan') {
+  if (!points.length) return '';
+  const W = 600, H = 280, PL = 40, PR = 16, PT = 18, PB = 42;
+  const n = points.length;
+  const peak = Math.max(1, ...points.map((p) => p.value));
+  const step = Math.max(1, Math.ceil(peak / 4));
+  const top = step * 4;
+  const x = (i) => (n === 1 ? (PL + W - PR) / 2 : PL + (i * (W - PL - PR)) / (n - 1));
+  const y = (v) => H - PB - (v / top) * (H - PT - PB);
+  const grid = [0, 1, 2, 3, 4].map((k) => {
+    const yy = y(step * k).toFixed(1);
+    return `<line x1="${PL}" x2="${W - PR}" y1="${yy}" y2="${yy}" class="lc-grid"/><text x="${PL - 10}" y="${yy}" class="lc-axis" text-anchor="end" dominant-baseline="middle">${step * k}</text>`;
+  }).join('');
+  const coords = points.map((p, i) => [x(i).toFixed(1), y(p.value).toFixed(1)]);
+  const line = coords.map(([cx, cy], i) => `${i ? 'L' : 'M'}${cx},${cy}`).join('');
+  const area = `${line}L${coords[n - 1][0]},${H - PB}L${coords[0][0]},${H - PB}Z`;
+  const every = n <= 12 ? 1 : Math.ceil(n / 10);
+  const labels = points.map((p, i) => (i % every === 0 || i === n - 1)
+    ? `<text x="${x(i).toFixed(1)}" y="${H - PB + 24}" class="lc-axis" text-anchor="middle">${escapeHtml(p.label)}</text>`
+    : '').join('');
+  const dots = points.map((p, i) => `<circle cx="${coords[i][0]}" cy="${coords[i][1]}" r="${n > 40 ? 3 : 4.5}" class="lc-dot"><title>${escapeHtml(p.label)}: ${p.value} ${unit}</title></circle>`).join('');
+  return `<div class="chart-scroll"><svg class="line-chart" viewBox="0 0 ${W} ${H}" focusable="false" aria-hidden="true">${grid}<path class="lc-area" d="${area}"/><path class="lc-line" d="${line}"/>${dots}${labels}</svg></div>`;
+}
+
 function renderPublicStatistics(data) {
   const summary = $('public-stat-summary');
   if (summary) {
@@ -594,25 +619,17 @@ function renderPublicStatistics(data) {
 
   const chart = $('stats-monthly-chart');
   if (chart) {
-    const max = Math.max(1, ...data.monthly.map((month) => month.count));
-    chart.setAttribute('aria-label', data.monthly.map((month) => `${month.label}: ${month.count} aduan`).join('. '));
-    chart.innerHTML = data.monthly.map((month) => {
-      const height = month.count ? Math.max(8, Math.round((month.count / max) * 100)) : 3;
-      const monthLabel = `${month.label} '${month.month.slice(2, 4)}`;
-      return `<div class="public-trend-column" title="${escapeHtml(monthLabel)}: ${month.count} aduan"><b>${month.count}</b><span class="public-trend-track"><i style="height:${height}%"></i></span><small>${escapeHtml(monthLabel)}</small></div>`;
-    }).join('');
+    const monthly = data.monthly.map((month) => ({ label: `${month.label} '${month.month.slice(2, 4)}`, value: month.count }));
+    chart.setAttribute('aria-label', monthly.map((m) => `${m.label}: ${m.value} aduan`).join('. '));
+    chart.innerHTML = lineChartSvg(monthly) || '<p class="stats-empty">Belum ada data tren.</p>';
   }
 
   const categories = $('stats-category-list');
   if (categories) {
     const categoryAverages = new Map(data.categoryAverages.map((item) => [item.category, item]));
-    const max = Math.max(1, ...data.categoryAverages.map((item) => item.averageDays));
     categories.innerHTML = CATS.map((category) => {
       const item = categoryAverages.get(category);
-      if (!item) {
-        return `<div class="public-metric-row"><div class="public-metric-label"><b>${escapeHtml(category)}</b><span>Belum ada data</span></div><div class="public-metric-track"><i style="width:0%"></i></div></div>`;
-      }
-      return `<div class="public-metric-row"><div class="public-metric-label"><b>${escapeHtml(category)}</b><span>${item.averageDays} hari <small>· ${item.count} aduan</small></span></div><div class="public-metric-track"><i style="width:${Math.max(4, item.averageDays / max * 100)}%"></i></div></div>`;
+      return `<div class="public-metric-row"><div class="public-metric-label"><b>${escapeHtml(category)}</b><span>${item ? `${item.count} aduan selesai` : 'Belum ada data'}</span></div><strong class="public-metric-value">${item ? `${item.averageDays} hari` : '—'}</strong></div>`;
     }).join('');
   }
 
@@ -1051,13 +1068,10 @@ function renderTrendChart(cases) {
     if (counts.has(key)) counts.set(key, counts.get(key) + 1);
   });
 
-  const max = Math.max(1, ...counts.values());
+  const values = periods.map((period) => ({ label: period.label, value: counts.get(period.key) || 0 }));
+  chart.setAttribute('aria-label', values.map((v) => `${v.label}: ${v.value} aduan`).join('. '));
   chart.innerHTML = periods.length
-    ? periods.map((period) => {
-      const count = counts.get(period.key);
-      const height = count ? Math.max(5, Math.round((count / max) * 100)) : 2;
-      return `<div class="trend-column" title="${escapeHtml(period.label)}: ${count} aduan"><span class="trend-value">${count || ''}</span><span class="trend-bar" style="--bar-height:${height}%"></span><small>${escapeHtml(period.label)}</small></div>`;
-    }).join('')
+    ? lineChartSvg(values)
     : '<p class="empty-row">Belum ada data pada periode ini.</p>';
 
   const summary = $('trend-summary');
