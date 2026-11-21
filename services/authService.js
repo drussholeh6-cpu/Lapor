@@ -1,3 +1,4 @@
+const { randomUUID } = require('node:crypto');
 const { supabaseAdmin, supabaseAuth } = require('../config/supabase');
 const { AppError } = require('../core/errors');
 const { isValidEmail, normalizeText } = require('../utils/validators');
@@ -34,8 +35,9 @@ function isValidStaffUsername(username) {
   return /^[a-z0-9][a-z0-9._-]{2,31}$/.test(String(username || ''));
 }
 
-function emailForUsername(username) {
-  return `${username}@username.lacak-aduan.invalid`;
+function emailForUsername(username, unique = false) {
+  const suffix = unique ? `.${randomUUID()}` : '';
+  return `${username}${suffix}@username.lacak-aduan.invalid`;
 }
 
 function resolveStaffIdentifier(identifier) {
@@ -168,7 +170,8 @@ async function registerStaffAccount(input = {}, actor = null) {
     throw new AppError('Hanya admin yang dapat mendaftarkan akun petugas.', { status: 403, code: 'AUTH_FORBIDDEN' });
   }
 
-  const { name, email, username, role, unit } = normalizeStaffPayload(input, actor);
+  const { name, email: normalizedEmail, username, role, unit } = normalizeStaffPayload(input, actor);
+  let email = normalizedEmail;
   const password = String(input.password || '');
 
   if (!name || name.length < 2 || name.length > 80) {
@@ -190,17 +193,21 @@ async function registerStaffAccount(input = {}, actor = null) {
   }
 
   const admin = supabaseAdmin();
+  let existingProfile = null;
   if (username) {
     const { data: duplicateProfile, error: duplicateProfileError } = await admin
       .from(STAFF_TABLE)
-      .select('email')
+      .select('email, auth_user_id')
       .eq('username', username)
       .maybeSingle();
     if (duplicateProfileError) {
       throw new AppError('Gagal memeriksa username petugas.', { status: 500, code: 'STAFF_PROFILE_READ_FAILED' });
     }
-    if (duplicateProfile && uidForEmail(duplicateProfile.email) !== email) {
-      throw new AppError('Username tersebut sudah digunakan akun lain.', { status: 409, code: 'STAFF_USERNAME_CONFLICT' });
+    if (duplicateProfile) {
+      existingProfile = duplicateProfile;
+      email = uidForEmail(duplicateProfile.email);
+    } else {
+      email = emailForUsername(username, true);
     }
   }
 
@@ -211,9 +218,18 @@ async function registerStaffAccount(input = {}, actor = null) {
     throw new AppError('Gagal mengecek daftar petugas.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
   }
 
-  const existingUser = users.find((user) => uidForEmail(user.email || '') === email);
+  const existingUser = users.find((user) => user.id === existingProfile?.auth_user_id)
+    || users.find((user) => uidForEmail(user.email || '') === email)
+    || (username && users.find((user) => (
+      user.user_metadata?.username === username
+      || user.app_metadata?.username === username
+    )))
+    || null;
 
   if (existingUser) {
+    if (!existingProfile) {
+      email = uidForEmail(existingUser.email || email);
+    }
     const metadata = {
       app_metadata: {
         ...(existingUser.app_metadata || {}),
@@ -232,7 +248,14 @@ async function registerStaffAccount(input = {}, actor = null) {
       },
     };
 
-    const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, metadata);
+    const userUpdates = {
+      ...metadata,
+      email,
+      email_confirm: true,
+    };
+    if (username) userUpdates.password = password;
+
+    const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, userUpdates);
     if (updateError) {
       throw new AppError('Gagal memperbarui akun petugas yang sudah ada.', { status: 500, code: 'AUTH_USER_UPDATE_FAILED' });
     }
@@ -307,7 +330,8 @@ async function updateStaffAccount(input = {}, actor = null) {
   }
 
   const originalEmail = uidForEmail(input.originalEmail || '');
-  const { name, email, username, unit } = normalizeStaffPayload({ ...input, role: 'petugas' }, actor);
+  const { name, email: normalizedEmail, username, unit } = normalizeStaffPayload({ ...input, role: 'petugas' }, actor);
+  let email = normalizedEmail;
   const password = input.password === undefined || input.password === null
     ? ''
     : String(input.password);
@@ -351,6 +375,9 @@ async function updateStaffAccount(input = {}, actor = null) {
     || null;
   if (!profile && !authUser) {
     throw new AppError('Akun petugas tidak ditemukan.', { status: 404, code: 'STAFF_NOT_FOUND' });
+  }
+  if (username) {
+    email = uidForEmail(profile?.email || authUser?.email || email);
   }
 
   const roles = [profile?.role, authUser?.app_metadata?.role, authUser?.user_metadata?.role];
@@ -478,7 +505,9 @@ async function deleteStaffAccount(input = {}, actor = null) {
     throw new AppError('Gagal memeriksa akun petugas.', { status: 500, code: 'AUTH_USERLIST_FAILED' });
   }
 
-  const authUser = users.find((user) => uidForEmail(user.email || '') === email) || null;
+  const authUser = users.find((user) => user.id === profile?.auth_user_id)
+    || users.find((user) => uidForEmail(user.email || '') === email)
+    || null;
   if (!profile && !authUser) {
     throw new AppError('Akun petugas tidak ditemukan.', { status: 404, code: 'STAFF_NOT_FOUND' });
   }
